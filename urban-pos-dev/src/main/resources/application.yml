@@ -1,0 +1,46 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}
+    username: ${PGUSER}
+    password: ${PGPASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:migrations
+    ignore-missing-migrations: true
+    repair-on-migrate: true
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+
+
+jwt:
+  secret: ${JWT_SECRET}
+  access:
+    expiration: ${JWT_ACCESS_EXPIRATION}
+  refresh:
+    expiration: ${JWT_REFRESH_EXPIRATION}
+
+webhook:
+  wpforms:
+    secret:
+      wpforms-urbantrend-9fA3xL7Q2P
+
+zettatel:
+  api-key: ${ZETTATEL_API_KEY:fbd55952c19148a240f0d0e5e8c4fca6bd85b05a}
+  user-id: ${ZETTATEL_USER:urbantrends}
+  password: ${ZETTATEL_PASS:Samuelmithia1}
+  sender-id: KamkunjiHub
+
+kcb:
+  consumer-key: ${KCB_CONSUMER_KEY:xXawxvrTJLikkbCn4Dgj5oGvNuwa}
+  consumer-secret: ${KCB_CONSUMER_SECRET:PM6mjDHNJ5VFfxYB_quwu8pKKdMa}
+  base-url: ${KCB_BASE_URL:https://uat.buni.kcbgroup.com}
+
+server:
+  port: 8080

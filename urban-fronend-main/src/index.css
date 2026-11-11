@@ -1,0 +1,277 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------
+   Design tokens
+   Exposed both as Tailwind theme colors (bg-brand-600, text-brand-700…)
+   and as plain CSS variables so inline-styled pages can use var(--brand).
+------------------------------------------------------------------- */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
+
+  --animate-fade-in: ui-fade-in 0.18s ease-out;
+  --animate-pop-in: ui-pop-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-drawer-in: ui-drawer-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-slide-in: ui-slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root {
+  --brand: #4f46e5;
+  --brand-hover: #4338ca;
+  --brand-soft: #eef2ff;
+  --brand-ring: rgba(79, 70, 229, 0.25);
+
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --app-bg: #f4f6fb;
+  --border: #e5e7eb;
+  --border-subtle: #f1f5f9;
+
+  --text: #0f172a;
+  --text-muted: #64748b;
+
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --success: #16a34a;
+  --success-soft: #f0fdf4;
+
+  --radius: 12px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 24px 48px -12px rgba(15, 23, 42, 0.25);
+}
+
+@keyframes ui-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ui-pop-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ui-drawer-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes ui-slide-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes ui-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ------------------------------------------------------------------
+   Base
+------------------------------------------------------------------- */
+@layer base {
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--app-bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  button,
+  a {
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease,
+      box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  }
+
+  button:not(:disabled):active {
+    transform: translateY(1px);
+  }
+
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  /* Pages set `outline: none` inline; the ring below keeps focus visible. */
+  input:focus,
+  select:focus,
+  textarea:focus {
+    border-color: var(--brand) !important;
+    box-shadow: 0 0 0 3px var(--brand-ring);
+    outline: none;
+  }
+
+  /* Inputs that live inside a bordered wrapper (search boxes, password fields). */
+  .ui-field input:focus,
+  .ui-field input:focus-visible {
+    box-shadow: none;
+  }
+
+  .ui-field:focus-within {
+    border-color: var(--brand) !important;
+    box-shadow: 0 0 0 3px var(--brand-ring);
+  }
+
+  button:focus-visible,
+  a:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--brand);
+  }
+
+  input[type="checkbox"]:focus,
+  input[type="radio"]:focus {
+    box-shadow: none;
+  }
+
+  ::placeholder {
+    color: #94a3b8;
+  }
+
+  ::selection {
+    background: var(--brand-100, #e0e7ff);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ------------------------------------------------------------------
+   Shared UI primitives
+------------------------------------------------------------------- */
+@layer components {
+  .ui-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .ui-spinner {
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    animation: ui-spin 0.7s linear infinite;
+    display: inline-block;
+  }
+
+  /* Table rows rendered as CSS grid get a hover tint. */
+  .desktop-row,
+  .ui-row {
+    transition: background-color 0.12s ease;
+  }
+
+  .desktop-row:hover,
+  .ui-row:hover {
+    background: var(--surface-muted);
+  }
+
+  .desktop-header {
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Native tables */
+  .ui-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  .ui-table thead th {
+    background: var(--surface-muted);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .ui-table tbody td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .ui-table tbody tr {
+    transition: background-color 0.12s ease;
+  }
+
+  .ui-table tbody tr:hover {
+    background: var(--surface-muted);
+  }
+}
+
+/* Borderless inputs nested in a bordered wrapper shouldn't draw their own ring. */
+@layer base {
+  input[style*="border: none"]:focus,
+  input[style*="border: 0"]:focus {
+    box-shadow: none;
+  }
+}

@@ -1,0 +1,1 @@
+alter table orders add column account_number varchar(20);

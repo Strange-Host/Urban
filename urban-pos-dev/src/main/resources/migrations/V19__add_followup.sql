@@ -1,0 +1,1 @@
+alter table leads add column follow_up_at timestamp;
