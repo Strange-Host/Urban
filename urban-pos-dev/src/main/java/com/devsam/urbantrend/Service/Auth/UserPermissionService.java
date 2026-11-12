@@ -5,9 +5,10 @@ import com.devsam.urbantrend.Entity.UserPermission;
 import com.devsam.urbantrend.Enum.Permission;
 import com.devsam.urbantrend.Repository.UserPermissionRepository;
 import com.devsam.urbantrend.Repository.UserRepository;
-import com.devsam.urbantrend.Roles.UserRole;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
@@ -21,6 +22,7 @@ public class UserPermissionService {
 
     private final UserPermissionRepository permissionRepository;
     private final UserRepository userRepository;
+    private final AuthCache authCache;
 
 
     public List<UserPermission> getUserPermissions(UUID userId) {
@@ -53,6 +55,8 @@ public class UserPermissionService {
             );
             permissionRepository.saveAll(existing);
         }
+
+        authCache.evict(user.getEmail());
     }
 
     public boolean hasPermission(UUID userId, Permission permission) {
@@ -63,23 +67,23 @@ public class UserPermissionService {
     }
 
     /**
-     * Checks a user's permission in real-time against the database, bypassing
-     * any cached authorities from the JWT/authentication context. This ensures
-     * newly granted permissions take effect immediately without requiring the
-     * user to log out and back in.
+     * Checks a user's permission against the database instead of the authorities
+     * embedded in the JWT, so a grant applies without the user logging out and
+     * back in. Reads the database directly on a cache miss; the cached copy
+     * lives for at most a minute and is evicted whenever permissions change.
      */
     public boolean hasPermissionByEmail(String email, Permission permission) {
-        // Check if user is ADMIN (admins get all permissions)
-        User user = userRepository.findByEmail(email).orElse(null);
-        if (user != null && user.getRole() == UserRole.ADMIN) {
-            return true;
-        }
 
-        // For non-admins, check explicit permissions in database
-        return permissionRepository
-                .findByUser_EmailAndPermission(email, permission)
-                .map(UserPermission::isGranted)
-                .orElse(false);
+        UserDetails details = authCache.find(email)
+                .or(() -> authCache.load(email))
+                .orElse(null);
+
+        if (details == null) return false;
+
+        for (GrantedAuthority authority : details.getAuthorities()) {
+            if (authority.getAuthority().equals(permission.name())) return true;
+        }
+        return false;
     }
 
     public boolean hasPermissionByEmail(String email, String permission) {

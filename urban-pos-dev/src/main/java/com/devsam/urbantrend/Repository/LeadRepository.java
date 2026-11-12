@@ -79,4 +79,35 @@ public interface LeadRepository extends JpaRepository<Lead, Long> {
             @org.springframework.data.repository.query.Param("from") LocalDateTime from,
             @org.springframework.data.repository.query.Param("to") LocalDateTime to
     );
+
+    @Query("""
+        SELECT l.assignedTo.id, COUNT(l) FROM Lead l
+        WHERE l.assignedTo IS NOT NULL
+          AND l.created BETWEEN :from AND :to
+        GROUP BY l.assignedTo.id
+    """)
+    List<Object[]> countAssignedLeadsByStaff(
+            @org.springframework.data.repository.query.Param("from") LocalDateTime from,
+            @org.springframework.data.repository.query.Param("to") LocalDateTime to
+    );
+
+    @Query("""
+        SELECT l.assignedTo.id, COUNT(l) FROM Lead l
+        WHERE l.assignedTo IS NOT NULL
+          AND l.created BETWEEN :from AND :to
+          AND l.status = 'CONVERTED'
+          AND l.convertedOrderId IN (
+              SELECT o.id FROM com.devsam.urbantrend.Entity.Order o
+              WHERE o.orderStatus IN (
+                  com.devsam.urbantrend.Enum.OrderStatus.DISPATCHED_PAID,
+                  com.devsam.urbantrend.Enum.OrderStatus.DELIVERED_PAID,
+                  com.devsam.urbantrend.Enum.OrderStatus.COMPLETED
+              )
+          )
+        GROUP BY l.assignedTo.id
+    """)
+    List<Object[]> countConvertedAndPaidLeadsByStaff(
+            @org.springframework.data.repository.query.Param("from") LocalDateTime from,
+            @org.springframework.data.repository.query.Param("to") LocalDateTime to
+    );
 }

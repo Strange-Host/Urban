@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -26,5 +27,20 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to,
             @Param("statuses") Collection<OrderStatus> statuses
+    );
+
+    @Query("""
+        SELECT COALESCE(SUM(oi.costPrice * oi.quantity), 0)
+        FROM OrderItem oi
+        WHERE oi.order.createdBy = :staffId
+          AND oi.order.deletedAt IS NULL
+          AND oi.order.orderStatus IN :statuses
+          AND oi.order.createdAt BETWEEN :from AND :to
+    """)
+    BigDecimal sumStaffCogs(
+            @Param("staffId") UUID staffId,
+            @Param("statuses") Collection<OrderStatus> statuses,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
     );
 }

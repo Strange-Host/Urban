@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -36,6 +37,15 @@ public class OrderServiceImpl implements OrderService {
     private final CustomerRepository customerRepository;
     private final PayrollService payrollService;
     private final CourierRepository courierRepository;
+
+    private static final List<OrderStatus> REVENUE_STATUSES =
+            Arrays.stream(OrderStatus.values())
+                    .filter(OrderStatus::isRevenueRecognized)
+                    .toList();
+
+    // Orders cannot predate the system, so a fixed start keeps "all time"
+    // expressible as a bounded range the same query can use.
+    private static final LocalDateTime ALL_TIME_START = LocalDateTime.of(2000, 1, 1, 0, 0);
 
     @Override
     @Transactional
@@ -358,25 +368,20 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public StaffOrderSummary getStaffSummary(UUID staffId) {
 
-        List<Order> orders = orderRepository.findByCreatedByAndDeletedAtIsNull(staffId);
-
         LocalDate today = LocalDate.now();
+        LocalDateTime dayStart = today.atStartOfDay();
+        LocalDateTime upper = LocalDateTime.now().plusDays(1);
 
-        List<Order> todaysOrders = orders.stream()
-                .filter(o -> o.getCreatedAt() != null &&
-                        o.getCreatedAt().toLocalDate().equals(today))
-                .toList();
+        int totalOrders = Math.toIntExact(
+                orderRepository.countByCreatedByAndDeletedAtIsNull(staffId));
 
-        List<Order> revenueOrders = orders.stream()
-                .filter(o -> o.getOrderStatus() != null && o.getOrderStatus().isRevenueRecognized())
-                .toList();
+        int ordersToday = Math.toIntExact(
+                orderRepository.countByCreatedByAndCreatedAtGreaterThanEqualAndDeletedAtIsNull(staffId, dayStart));
 
-        List<Order> todaysRevenueOrders = todaysOrders.stream()
-                .filter(o -> o.getOrderStatus() != null && o.getOrderStatus().isRevenueRecognized())
-                .toList();
-
-        BigDecimal revenueToday = sumRevenue(todaysRevenueOrders);
-        BigDecimal cogsToday = sumCogs(todaysRevenueOrders);
+        BigDecimal revenueToday =
+                orderRepository.sumStaffRevenue(staffId, REVENUE_STATUSES, dayStart, upper);
+        BigDecimal cogsToday =
+                orderItemRepository.sumStaffCogs(staffId, REVENUE_STATUSES, dayStart, upper);
 
         BigDecimal profitToday = revenueToday.subtract(cogsToday);
 
@@ -388,28 +393,29 @@ public class OrderServiceImpl implements OrderService {
                 .getStaffPayroll(staffId, today, today)
                 .getCommission();
 
-        int totalOrders = orders.size();
-
-        BigDecimal totalRevenue = sumRevenue(revenueOrders);
-        BigDecimal totalCogs = sumCogs(revenueOrders);
+        BigDecimal totalRevenue =
+                orderRepository.sumStaffRevenue(staffId, REVENUE_STATUSES, ALL_TIME_START, upper);
+        BigDecimal totalCogs =
+                orderItemRepository.sumStaffCogs(staffId, REVENUE_STATUSES, ALL_TIME_START, upper);
 
         BigDecimal totalProfit = totalRevenue.subtract(totalCogs);
 
-        LocalDate earliestOrderDate = orders.stream()
-                .map(o -> o.getCreatedAt() != null ? o.getCreatedAt().toLocalDate() : today)
-                .min(LocalDate::compareTo)
-                .orElse(today);
+        LocalDateTime firstOrderAt = orderRepository.findEarliestOrderCreatedAt(staffId);
+        LocalDate earliestOrderDate = firstOrderAt != null ? firstOrderAt.toLocalDate() : today;
 
-        BigDecimal totalCommission = payrollService
-                .getStaffPayroll(staffId, earliestOrderDate, today)
-                .getCommission();
+        BigDecimal totalCommission = earliestOrderDate.equals(today)
+                ? commissionToday
+                : payrollService.getStaffPayroll(staffId, earliestOrderDate, today).getCommission();
 
-        BigDecimal averageOrderValue = revenueOrders.isEmpty()
+        long revenueOrders =
+                orderRepository.countStaffRevenueOrders(staffId, REVENUE_STATUSES);
+
+        BigDecimal averageOrderValue = revenueOrders == 0
                 ? BigDecimal.ZERO
-                : totalRevenue.divide(BigDecimal.valueOf(revenueOrders.size()), 2, RoundingMode.HALF_UP);
+                : totalRevenue.divide(BigDecimal.valueOf(revenueOrders), 2, RoundingMode.HALF_UP);
 
         return StaffOrderSummary.builder()
-                .ordersToday(todaysOrders.size())
+                .ordersToday(ordersToday)
                 .revenueToday(revenueToday)
                 .profitToday(profitToday)
                 .commissionToday(commissionToday)
@@ -419,21 +425,6 @@ public class OrderServiceImpl implements OrderService {
                 .totalCommission(totalCommission)
                 .averageOrderValue(averageOrderValue)
                 .build();
-    }
-
-    private BigDecimal sumRevenue(List<Order> orders) {
-        return orders.stream()
-                .map(o -> o.getTotalAmount() != null ? o.getTotalAmount() : BigDecimal.ZERO)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    private BigDecimal sumCogs(List<Order> orders) {
-        return orders.stream()
-                .map(o -> o.getItems() == null ? BigDecimal.ZERO :
-                        o.getItems().stream()
-                                .map(i -> i.getCostPrice().multiply(i.getQuantity()))
-                                .reduce(BigDecimal.ZERO, BigDecimal::add))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     public Order updateNotes(UUID id, UpdateOrderNotesRequest request, User user) {

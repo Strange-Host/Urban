@@ -146,8 +146,12 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private String staffName(User staff) {
-        String first = staff.getFirstName() == null ? "" : staff.getFirstName();
-        String last = staff.getLastName() == null ? "" : staff.getLastName();
+        return fullName(staff.getFirstName(), staff.getLastName());
+    }
+
+    private static String fullName(String firstName, String lastName) {
+        String first = firstName == null ? "" : firstName;
+        String last = lastName == null ? "" : lastName;
         return (first + " " + last).trim();
     }
 
@@ -224,14 +228,13 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public List<ProductStaffAssignmentResponse> getStaffAssignments(User currentUser) {
 
-        return productRepository.findAllByDeletedAtIsNull(Pageable.unpaged())
+        return productRepository.findStaffAssignments()
                 .stream()
-                .filter(product -> product.getAssignedStaff() != null)
-                .map(product -> ProductStaffAssignmentResponse.builder()
-                        .productId(product.getId())
-                        .productName(product.getName())
-                        .staffId(product.getAssignedStaff().getId())
-                        .staffName(staffName(product.getAssignedStaff()))
+                .map(row -> ProductStaffAssignmentResponse.builder()
+                        .productId((UUID) row[0])
+                        .productName((String) row[1])
+                        .staffId((UUID) row[2])
+                        .staffName(fullName((String) row[3], (String) row[4]))
                         .build())
                 .toList();
     }

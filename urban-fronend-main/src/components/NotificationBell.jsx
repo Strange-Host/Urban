@@ -26,7 +26,35 @@ export default function NotificationBell() {
 
   useEffect(() => {
     fetchUnread();
-    const intervalId = setInterval(fetchUnread, 60000);
+
+    const token = localStorage.getItem("accessToken");
+    if (!token) return;
+
+    const base = api.defaults.baseURL || "";
+    const es = new EventSource(
+      `${base}/api/v1/notifications/subscribe?access_token=${encodeURIComponent(token)}`
+    );
+
+    es.addEventListener("notification", (e) => {
+      try {
+        const notification = JSON.parse(e.data);
+        setUnread((prev) =>
+          prev.some((n) => n.id === notification.id) ? prev : [notification, ...prev]
+        );
+      } catch (err) {
+        console.error("Failed to parse notification", err);
+      }
+    });
+
+    // Reload on (re)connect: events sent while the stream was down are lost.
+    es.addEventListener("open", fetchUnread);
+
+    return () => es.close();
+  }, [fetchUnread]);
+
+  // Fallback for when the stream cannot be established at all (proxy, offline).
+  useEffect(() => {
+    const intervalId = setInterval(fetchUnread, 300000);
     return () => clearInterval(intervalId);
   }, [fetchUnread]);
 

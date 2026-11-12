@@ -21,6 +21,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Page<User> findAllByDeletedAtIsNull(Pageable pageable);
 
+    List<User> findAllByDeletedAtIsNullAndRoleNot(UserRole role);
+
     List<User> findByRole(UserRole role);
 
     List<User> findByRoleNot(UserRole userRole);

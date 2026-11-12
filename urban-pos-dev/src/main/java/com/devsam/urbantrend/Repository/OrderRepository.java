@@ -10,7 +10,9 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -87,7 +89,77 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     """)
     long countPaidDaysWorked(UUID staffId, LocalDateTime from, LocalDateTime to);
 
+    @Query("""
+        SELECT o.createdBy, COUNT(o)
+        FROM Order o
+        WHERE o.createdBy IS NOT NULL
+          AND o.orderStatus IN (
+              com.devsam.urbantrend.Enum.OrderStatus.DISPATCHED_PAID,
+              com.devsam.urbantrend.Enum.OrderStatus.DELIVERED_PAID,
+              com.devsam.urbantrend.Enum.OrderStatus.COMPLETED
+          )
+          AND o.createdAt BETWEEN :from AND :to
+        GROUP BY o.createdBy
+    """)
+    List<Object[]> countPaidOrdersByStaff(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
+    );
+
+    @Query("""
+        SELECT o.createdBy, COUNT(DISTINCT FUNCTION('DATE', o.createdAt))
+        FROM Order o
+        WHERE o.createdBy IS NOT NULL
+          AND o.orderStatus IN (
+              com.devsam.urbantrend.Enum.OrderStatus.DISPATCHED_PAID,
+              com.devsam.urbantrend.Enum.OrderStatus.DELIVERED_PAID,
+              com.devsam.urbantrend.Enum.OrderStatus.COMPLETED
+          )
+          AND o.createdAt BETWEEN :from AND :to
+        GROUP BY o.createdBy
+    """)
+    List<Object[]> countPaidDaysWorkedByStaff(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
+    );
+
     Optional<Order> findByIdAndDeletedAtIsNull(UUID id);
+
+    long countByCreatedByAndDeletedAtIsNull(UUID staffId);
+
+    long countByCreatedByAndCreatedAtGreaterThanEqualAndDeletedAtIsNull(UUID staffId, LocalDateTime from);
+
+    @Query("""
+        SELECT COALESCE(SUM(o.totalAmount), 0)
+        FROM Order o
+        WHERE o.createdBy = :staffId
+          AND o.deletedAt IS NULL
+          AND o.orderStatus IN :statuses
+          AND o.createdAt BETWEEN :from AND :to
+    """)
+    BigDecimal sumStaffRevenue(
+            @Param("staffId") UUID staffId,
+            @Param("statuses") Collection<OrderStatus> statuses,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
+    );
+
+    @Query("""
+        SELECT COUNT(o) FROM Order o
+        WHERE o.createdBy = :staffId
+          AND o.deletedAt IS NULL
+          AND o.orderStatus IN :statuses
+    """)
+    long countStaffRevenueOrders(
+            @Param("staffId") UUID staffId,
+            @Param("statuses") Collection<OrderStatus> statuses
+    );
+
+    @Query("""
+        SELECT MIN(o.createdAt) FROM Order o
+        WHERE o.createdBy = :staffId AND o.deletedAt IS NULL
+    """)
+    LocalDateTime findEarliestOrderCreatedAt(@Param("staffId") UUID staffId);
 
     Optional<Order> findByAccountNumber(String accountNumber);
 
@@ -129,9 +201,6 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             @Param("to") LocalDateTime to,
             @Param("limit") int limit
     );
-
-    List<Order> findByCreatedByAndDeletedAtIsNull(UUID staffId);
-
 
     @Query("""
     SELECT o FROM Order o

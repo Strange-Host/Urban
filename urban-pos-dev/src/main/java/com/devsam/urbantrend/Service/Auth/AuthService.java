@@ -35,6 +35,7 @@ public class AuthService {
     private final UserPermissionRepository userPermissionRepository;
     private final OtpService otpService;
     private final LogoutCheckRepository logoutCheckRepository;
+    private final AuthCache authCache;
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
@@ -182,6 +183,8 @@ public class AuthService {
         user.setRefreshToken(null);
         user.setRefreshTokenExpiry(null);
         userRepository.save(user);
+
+        authCache.evict(user.getEmail());
     }
 
     @Transactional
