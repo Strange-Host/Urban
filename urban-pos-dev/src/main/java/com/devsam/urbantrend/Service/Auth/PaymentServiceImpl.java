@@ -71,6 +71,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .transactionRef(request.getTransactionRef())
                 .payerPhone(request.getPayerPhone())
                 .payerName(request.getPayerName())
+                .notes(request.getNotes())
                 .paymentDate(request.getPaymentDate() != null ? request.getPaymentDate() : OffsetDateTime.now())
                 .status(PaymentStatus.PAID)
                 .recordedBy(user.getId())
@@ -93,13 +94,14 @@ public class PaymentServiceImpl implements PaymentService {
 
         return payments.map(payment -> PaymentResponse.builder()
                 .id(payment.getId())
-//                .orderId(payment.getOrder().getId()) // ✅ use orderId only
+                .orderId(payment.getOrder() != null ? payment.getOrder().getId() : null)
                 .method(payment.getMethod())
                 .amount(payment.getAmount())
                 .currency(payment.getCurrency())
                 .transactionRef(payment.getTransactionRef())
                 .payerPhone(payment.getPayerPhone())
                 .payerName(payment.getPayerName())
+                .notes(payment.getNotes())
                 .paymentDate(payment.getPaymentDate())
                 .status(payment.getStatus())
                 .matched(payment.isMatched())
@@ -225,10 +227,12 @@ public class PaymentServiceImpl implements PaymentService {
                 .transactionRef(payment.getTransactionRef())
                 .payerPhone(payment.getPayerPhone())
                 .payerName(payment.getPayerName())
+                .notes(payment.getNotes())
                 .paymentDate(payment.getPaymentDate())
                 .status(payment.getStatus())
                 .matched(payment.isMatched())
                 .suspicious(payment.isSuspicious())
+                .createdAt(payment.getCreatedAt())
                 .build();
     }
 }

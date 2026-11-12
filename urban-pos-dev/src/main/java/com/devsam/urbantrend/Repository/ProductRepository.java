@@ -22,11 +22,21 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     Optional<Product> findFirstByNameIgnoreCase(String name);
 
+    Optional<Product> findFirstByNameIgnoreCaseAndDeletedAtIsNull(String name);
+
     List<Product> findAllByDeletedAtIsNullAndAssignedStaffIsNotNull();
 
     List<Product> findAllByDeletedAtIsNullAndAssignedStaff(User assignedStaff);
 
+    Page<Product> findAllByDeletedAtIsNullAndAssignedStaff(User assignedStaff, Pageable pageable);
+
     Page<Product> findByNameIgnoreCaseContainingAndDeletedAtIsNull(String name, Pageable pageable);
+
+    Page<Product> findByNameIgnoreCaseContainingAndDeletedAtIsNullAndAssignedStaff(
+            String name,
+            User assignedStaff,
+            Pageable pageable
+    );
 
 }
 

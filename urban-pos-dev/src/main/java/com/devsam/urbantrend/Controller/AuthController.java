@@ -29,6 +29,11 @@ public class AuthController {
         return authService.login(request);
     }
 
+    @PostMapping("/refresh")
+    public AuthResponse refresh(@RequestBody RefreshTokenRequest request) {
+        return authService.refresh(request.getRefreshToken());
+    }
+
     @PostMapping("/verify-otp")
     public AuthResponse verifyOtp(@RequestBody VerifyOtpRequest request) {
         return authService.verifyOtp(request.getEmail(), request.getOtp());
@@ -104,7 +109,7 @@ public class AuthController {
         return ResponseEntity.ok("Logged out successfully");
     }
     private User getUser(UserDetails userDetails) {
-        return userRepository.findByEmail(userDetails.getUsername())
+        return userRepository.findByEmailAndDeletedAtIsNull(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 }

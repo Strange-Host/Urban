@@ -2,7 +2,7 @@ package com.devsam.urbantrend.Controller;
 
 import com.devsam.urbantrend.Dtos.RejectRequisitionRequest;
 import com.devsam.urbantrend.Dtos.RequisitionRequest;
-import com.devsam.urbantrend.Entity.Requisition;
+import com.devsam.urbantrend.Dtos.RequisitionResponse;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Repository.UserRepository;
 import com.devsam.urbantrend.Service.Auth.RequisitionService;
@@ -25,59 +25,61 @@ public class RequisitionController {
     private final UserRepository userRepository;
 
     private User me(UserDetails ud) {
-        return userRepository.findByEmail(ud.getUsername())
+        return userRepository.findByEmailAndDeletedAtIsNull(ud.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
     @PostMapping
     @PreAuthorize("hasAuthority('CAN_CREATE_REQUISITIONS')")
-    public Requisition create(
+    public RequisitionResponse create(
             @RequestBody RequisitionRequest req,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
-        return requisitionService.create(req, me(userDetails));
+        return RequisitionResponse.from(requisitionService.create(req, me(userDetails)));
     }
 
     @GetMapping("/mine")
     @PreAuthorize("hasAuthority('CAN_VIEW_OWN_REQUISITIONS')")
-    public Page<Requisition> mine(
+    public Page<RequisitionResponse> mine(
             Pageable pageable,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
-        return requisitionService.getMine(me(userDetails), pageable);
+        return requisitionService.getMine(me(userDetails), pageable)
+                .map(RequisitionResponse::from);
     }
 
     @GetMapping
     @PreAuthorize("hasAuthority('CAN_VIEW_REQUISITIONS')")
-    public Page<Requisition> all(Pageable pageable) {
-        return requisitionService.getAll(pageable);
+    public Page<RequisitionResponse> all(Pageable pageable) {
+        return requisitionService.getAll(pageable)
+                .map(RequisitionResponse::from);
     }
 
     @PatchMapping("/{id}/approve")
     @PreAuthorize("hasAuthority('CAN_APPROVE_REQUISITIONS')")
-    public Requisition approve(
+    public RequisitionResponse approve(
             @PathVariable UUID id,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
-        return requisitionService.approve(id, me(userDetails));
+        return RequisitionResponse.from(requisitionService.approve(id, me(userDetails)));
     }
 
     @PatchMapping("/{id}/reject")
     @PreAuthorize("hasAuthority('CAN_REJECT_REQUISITIONS')")
-    public Requisition reject(
+    public RequisitionResponse reject(
             @PathVariable UUID id,
             @RequestBody RejectRequisitionRequest req,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
-        return requisitionService.reject(id, req.getReason(), me(userDetails));
+        return RequisitionResponse.from(requisitionService.reject(id, req.getReason(), me(userDetails)));
     }
 
     @PatchMapping("/{id}/mark-paid")
     @PreAuthorize("hasAuthority('CAN_MARK_REQUISITION_PAID')")
-    public Requisition markPaid(
+    public RequisitionResponse markPaid(
             @PathVariable UUID id,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
-        return requisitionService.markPaid(id, me(userDetails));
+        return RequisitionResponse.from(requisitionService.markPaid(id, me(userDetails)));
     }
 }

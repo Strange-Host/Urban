@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -96,10 +97,10 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
 
         var user = userRepository.findByEmailAndDeletedAtIsNull(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
+                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("Invalid email or password");
+            throw new BadCredentialsException("Invalid email or password");
         }
 
         // 🔐 Send OTP
@@ -133,42 +134,28 @@ public class AuthService {
     }
 
     public AuthResponse refresh(String refreshToken) {
-        if (!jwtService.isTokenValid(refreshToken) || !jwtService.isRefreshToken(refreshToken)) {
-            throw new IllegalArgumentException("Invalid refresh token");
+        if (refreshToken == null || refreshToken.isBlank()
+                || !jwtService.isTokenValid(refreshToken)
+                || !jwtService.isRefreshToken(refreshToken)) {
+            throw new BadCredentialsException("Invalid refresh token");
         }
 
         String email = jwtService.extractEmail(refreshToken);
 
         User user = userRepository.findByEmailAndDeletedAtIsNull(email)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));
+                .orElseThrow(() -> new BadCredentialsException("Invalid refresh token"));
 
         // Validate stored refresh token
         if (!refreshToken.equals(user.getRefreshToken()) ||
                 user.getRefreshTokenExpiry() == null ||
                 user.getRefreshTokenExpiry().isBefore(LocalDateTime.now())) {
-            throw new IllegalArgumentException("Refresh token expired or invalid");
-        }
-
-        // Build authorities the same way as login
-        List<String> authorities = new ArrayList<>();
-        authorities.add("ROLE_" + user.getRole().name());
-
-        if (user.getRole().name().equals("ADMIN")) {
-            Arrays.stream(Permission.values())
-                    .map(Permission::name)
-                    .forEach(authorities::add);
-        } else {
-            userPermissionRepository.findByUserId(user.getId())
-                    .stream()
-                    .filter(UserPermission::isGranted)
-                    .map(p -> p.getPermission().name())
-                    .forEach(authorities::add);
+            throw new BadCredentialsException("Refresh token expired or invalid");
         }
 
         String newAccessToken = jwtService.generateAccessToken(
                 email,
                 user.getRole().name(),
-                authorities
+                buildAuthorities(user)
         );
 
         return new AuthResponse(newAccessToken, refreshToken, "SUCCESS");
@@ -216,12 +203,12 @@ public class AuthService {
     public AuthResponse verifyOtp(String email, String otp) {
 
         User user = userRepository.findByEmailAndDeletedAtIsNull(email)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired OTP"));
+                .orElseThrow(() -> new BadCredentialsException("Invalid or expired OTP"));
 
         boolean isValid = otpService.verifyOtp(user.getPhoneNumber(), otp);
 
         if (!isValid) {
-            throw new RuntimeException("Invalid or expired OTP");
+            throw new BadCredentialsException("Invalid or expired OTP");
         }
 
         List<String> authorities = buildAuthorities(user);

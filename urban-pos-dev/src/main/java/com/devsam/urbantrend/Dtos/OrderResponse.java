@@ -19,7 +19,6 @@ public class OrderResponse {
     private String productName;
     private UUID assignedTo;
     private Long phoneNumber;
-    private UUID branchId;
     private OrderStatus orderStatus;
     private BigDecimal totalAmount;
     private BigDecimal paidAmount;

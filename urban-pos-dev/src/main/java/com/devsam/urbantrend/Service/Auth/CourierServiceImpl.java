@@ -5,6 +5,7 @@ import com.devsam.urbantrend.Dtos.CourierResponse;
 import com.devsam.urbantrend.Entity.Courier;
 import com.devsam.urbantrend.Errors.ResourceNotFoundException;
 import com.devsam.urbantrend.Repository.CourierRepository;
+import com.devsam.urbantrend.Repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,6 +21,7 @@ import java.util.UUID;
 public class CourierServiceImpl implements CourierService {
 
     private final CourierRepository courierRepository;
+    private final OrderRepository orderRepository;
 
     @Override
     public CourierResponse create(CourierRequest request) {
@@ -70,11 +72,18 @@ public class CourierServiceImpl implements CourierService {
     public CourierResponse update(UUID id, CourierRequest request) {
         Courier courier = getEntity(id);
 
+        boolean wasActive = courier.isActive();
+
         if (request.getName() != null && !request.getName().isBlank()) {
             courier.setName(request.getName());
         }
         if (request.getPhoneNumber() != null && !request.getPhoneNumber().isBlank()) {
-            courier.setPhoneNumber(request.getPhoneNumber());
+            String phoneNumber = request.getPhoneNumber().trim();
+            if (!phoneNumber.equals(courier.getPhoneNumber())
+                    && courierRepository.existsByPhoneNumberAndIdNot(phoneNumber, id)) {
+                throw new IllegalArgumentException("A courier with this phone number already exists");
+            }
+            courier.setPhoneNumber(phoneNumber);
         }
         if (request.getVehicleInfo() != null) {
             courier.setVehicleInfo(request.getVehicleInfo());
@@ -86,7 +95,13 @@ public class CourierServiceImpl implements CourierService {
             courier.setActive(request.getActive());
         }
 
-        return toResponse(courierRepository.save(courier));
+        Courier saved = courierRepository.save(courier);
+
+        if (wasActive && !saved.isActive()) {
+            orderRepository.unassignCourier(saved.getId());
+        }
+
+        return toResponse(saved);
     }
 
     @Override
@@ -94,6 +109,7 @@ public class CourierServiceImpl implements CourierService {
         Courier courier = getEntity(id);
         courier.setActive(false);
         courierRepository.save(courier);
+        orderRepository.unassignCourier(courier.getId());
     }
 
     private Courier getEntity(UUID id) {

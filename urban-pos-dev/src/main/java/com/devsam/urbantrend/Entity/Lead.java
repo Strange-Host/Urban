@@ -59,6 +59,9 @@ public class Lead {
     @Column(name = "converted_order_id")
     private java.util.UUID convertedOrderId;
 
+    @Column(name = "shopify_order_id")
+    private Long shopifyOrderId;
+
     @PrePersist
     protected void onCreate() {
         this.created = LocalDateTime.now();

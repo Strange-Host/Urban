@@ -31,7 +31,7 @@ public class Order extends BaseEntity {
     @Column (name = "courier_id")
     private UUID courierId;
     @Column (name = "courier_assigned_at")
-    private LocalDateTime CourierAssignedAt;
+    private LocalDateTime courierAssignedAt;
 
     @Column(name = "discount")
     private BigDecimal discount;

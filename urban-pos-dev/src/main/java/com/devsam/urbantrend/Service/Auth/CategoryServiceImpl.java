@@ -41,14 +41,14 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     public Category getCategoryById(UUID id) {
-        return categoryRepository.findById(id)
+        return categoryRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Category not found")
                 );
     }
     @Override
     public Page<Category> getAllCategories(Pageable pageable) {
-        return categoryRepository.findAll(pageable);
+        return categoryRepository.findAllByDeletedAtIsNull(pageable);
     }
 
     @Override
@@ -73,11 +73,10 @@ public class CategoryServiceImpl implements CategoryService {
             throw new AccessDeniedException("Only ADMIN can delete categories");
         }
 
-        if (!categoryRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Category not found");
-        }
+        Category category = getCategoryById(id);
+        category.setDeletedAt(java.time.LocalDateTime.now());
 
-        categoryRepository.deleteById(id);
+        categoryRepository.save(category);
     }
 
 }

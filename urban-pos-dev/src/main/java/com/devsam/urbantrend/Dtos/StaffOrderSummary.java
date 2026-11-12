@@ -21,7 +21,4 @@ public class StaffOrderSummary {
     private BigDecimal totalProfit;
     private BigDecimal totalCommission;
     private BigDecimal averageOrderValue;
-
-    public StaffOrderSummary(int size, BigDecimal revenueToday) {
-    }
 }

@@ -30,6 +30,10 @@ webhook:
   wpforms:
     secret: ${WPFORMS_WEBHOOK_SECRET:}
 
+shopify:
+  webhook:
+    secret: ${SHOPIFY_WEBHOOK_SECRET:}
+
 zettatel:
   api-key: ${ZETTATEL_API_KEY:}
   user-id: ${ZETTATEL_USER:}

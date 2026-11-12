@@ -15,6 +15,8 @@ public interface LeadRepository extends JpaRepository<Lead, Long> {
 
     boolean existsByWpEntryId(Long wpEntryId);
 
+    boolean existsByShopifyOrderId(Long shopifyOrderId);
+
     Page<Lead> findByStatus(String status, Pageable pageable);
 
     Page<Lead> findByAssignedTo(User assignedTo, Pageable pageable);

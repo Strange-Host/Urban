@@ -1,6 +1,7 @@
 package com.devsam.urbantrend.Controller;
 
 import com.devsam.urbantrend.Dtos.ConvertLeadRequest;
+import com.devsam.urbantrend.Dtos.LeadResponse;
 import com.devsam.urbantrend.Entity.Lead;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Repository.LeadRepository;
@@ -217,26 +218,15 @@ public class LeadController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('CAN_VIEW_LEADS')")
-    public ResponseEntity<Page<Lead>> getAllLeads(
+    public ResponseEntity<Page<LeadResponse>> getAllLeads(
             @RequestParam(required = false) String status,
             @PageableDefault(size = 10, sort = "created", direction = Sort.Direction.DESC)
             Pageable pageable,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
 
-        User user = userRepository.findByEmail(userDetails.getUsername())
+        User user = userRepository.findByEmailAndDeletedAtIsNull(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
-        // 🔥 LOG (viewing leads)
-        staffLogService.log(
-                user.getId().toString(),
-                "VIEW",
-                "LEAD",
-                null,
-                "/api/v1/leads",
-                "GET",
-                "Viewed leads list"
-        );
 
         return ResponseEntity.ok(leadService.getAll(status, pageable, user));
     }
@@ -332,23 +322,20 @@ public class LeadController {
             @RequestBody Map<String, Object> body,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
-        User user = userRepository.findByEmail(userDetails.getUsername())
+        User user = userRepository.findByEmailAndDeletedAtIsNull(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (body.containsKey("notes")) {
-            String notes = body.get("notes") != null ? body.get("notes").toString() : null;
-            leadService.updateNotes(id, notes);
+        leadService.updateLead(id, body);
 
-            staffLogService.log(
-                    user.getId().toString(),
-                    "UPDATE",
-                    "LEAD",
-                    id.toString(),
-                    "/api/v1/leads/" + id,
-                    "PATCH",
-                    "Updated lead notes"
-            );
-        }
+        staffLogService.log(
+                user.getId().toString(),
+                "UPDATE",
+                "LEAD",
+                id.toString(),
+                "/api/v1/leads/" + id,
+                "PATCH",
+                "Updated lead fields: " + body.keySet()
+        );
 
         return ResponseEntity.ok().build();
     }

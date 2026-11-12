@@ -1,5 +1,6 @@
 package com.devsam.urbantrend.Entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -34,6 +35,7 @@ public class Notification extends BaseEntity {
     @Column(name = "reference_id")
     private Long referenceId;
 
+    @JsonProperty("read")
     @Column(name = "is_read")
     private boolean isRead = false;
 

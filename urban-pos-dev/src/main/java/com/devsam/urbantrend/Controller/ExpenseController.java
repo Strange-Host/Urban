@@ -1,6 +1,7 @@
 package com.devsam.urbantrend.Controller;
 
 import com.devsam.urbantrend.Dtos.ExpenseRequest;
+import com.devsam.urbantrend.Dtos.ExpenseResponse;
 import com.devsam.urbantrend.Entity.Expense;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Errors.ResourceNotFoundException;
@@ -14,6 +15,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @RestController
@@ -25,13 +27,13 @@ public class ExpenseController {
     private final UserRepository userRepository;
 
     private User me(UserDetails ud) {
-        return userRepository.findByEmail(ud.getUsername())
+        return userRepository.findByEmailAndDeletedAtIsNull(ud.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
     @PostMapping
     @PreAuthorize("hasAuthority('CAN_CREATE_EXPENSES')")
-    public Expense create(
+    public ExpenseResponse create(
             @RequestBody ExpenseRequest req,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
@@ -44,20 +46,23 @@ public class ExpenseController {
                 .createdBy(me(userDetails))
                 .build();
 
-        return expenseRepository.save(expense);
+        return ExpenseResponse.from(expenseRepository.save(expense));
     }
 
     @GetMapping
     @PreAuthorize("hasAuthority('CAN_VIEW_EXPENSES')")
-    public Page<Expense> all(Pageable pageable) {
-        return expenseRepository.findAllByDeletedAtIsNull(pageable);
+    public Page<ExpenseResponse> all(Pageable pageable) {
+        return expenseRepository.findAllByDeletedAtIsNull(pageable)
+                .map(ExpenseResponse::from);
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('CAN_DELETE_EXPENSES')")
     public void softDelete(@PathVariable UUID id) {
-        Expense e = expenseRepository.findByIdAndDeletedAtIsNull(id)
+        Expense expense = expenseRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
-        expenseRepository.save(e);
+
+        expense.setDeletedAt(LocalDateTime.now());
+        expenseRepository.save(expense);
     }
 }

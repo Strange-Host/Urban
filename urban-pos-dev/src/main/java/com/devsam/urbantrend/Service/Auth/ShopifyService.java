@@ -1,11 +1,16 @@
 package com.devsam.urbantrend.Service.Auth;
 
 import com.devsam.urbantrend.Entity.Lead;
+import com.devsam.urbantrend.Entity.Product;
 import com.devsam.urbantrend.Repository.LeadRepository;
 import com.devsam.urbantrend.Repository.ProductRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -14,123 +19,192 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ShopifyService {
 
+    private static final Logger log = LoggerFactory.getLogger(ShopifyService.class);
+
     private final LeadRepository leadRepository;
     private final ProductRepository productRepository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
+    @Transactional
     public void processShopifyOrder(Map<String, Object> payload) {
 
-        System.out.println("📦 Shopify webhook received: " + payload);
+        if (payload == null || payload.isEmpty()) {
+            throw new IllegalArgumentException("Shopify order payload is empty");
+        }
 
-        Map<String, Object> customerData    = (Map<String, Object>) payload.get("customer");
-        Map<String, Object> billingAddress  = (Map<String, Object>) payload.get("billing_address");
-        Map<String, Object> shippingAddress = (Map<String, Object>) payload.get("shipping_address");
+        Long shopifyOrderId = asLong(payload.get("id"));
 
-        String name  = "Shopify Customer";
+        if (shopifyOrderId == null) {
+            throw new IllegalArgumentException("Shopify order id is required");
+        }
+
+        if (leadRepository.existsByShopifyOrderId(shopifyOrderId)) {
+            log.info("Shopify order {} already processed; ignoring duplicate webhook", shopifyOrderId);
+            return;
+        }
+
+        Map<String, Object> customerData = asMap(payload.get("customer"));
+        Map<String, Object> billingAddress = asMap(payload.get("billing_address"));
+        Map<String, Object> shippingAddress = asMap(payload.get("shipping_address"));
+
+        String name = "Shopify Customer";
         String phone = "UNKNOWN";
-        String city  = "Shopify";
+        String city = "Shopify";
 
-        // ── 1. Try customer block ──────────────────────────────────────────
         if (customerData != null) {
-            String firstName = (String) customerData.getOrDefault("first_name", "");
-            String lastName  = (String) customerData.getOrDefault("last_name",  "");
-            String resolved  = (firstName + " " + lastName).trim();
-            if (!resolved.isEmpty()) name = resolved;
+            String resolved = joinName(
+                    asString(customerData.get("first_name")),
+                    asString(customerData.get("last_name"))
+            );
+            if (resolved != null) {
+                name = resolved;
+            }
 
-            Object phoneObj = customerData.get("phone");
-            if (phoneObj != null && !phoneObj.toString().isBlank()) {
-                phone = phoneObj.toString();
+            String customerPhone = asString(customerData.get("phone"));
+            if (customerPhone != null && !customerPhone.isBlank()) {
+                phone = customerPhone;
             }
         }
 
-        // ── 2. Fallback → billing address ─────────────────────────────────
         if (billingAddress != null) {
-            if (name.equals("Shopify Customer")) {
-                String fn = (String) billingAddress.getOrDefault("first_name", "");
-                String ln = (String) billingAddress.getOrDefault("last_name",  "");
-                String resolved = (fn + " " + ln).trim();
-                if (!resolved.isEmpty()) name = resolved;
-            }
-            if (phone.equals("UNKNOWN")) {
-                Object phoneObj = billingAddress.get("phone");
-                if (phoneObj != null && !phoneObj.toString().isBlank()) {
-                    phone = phoneObj.toString();
+            if ("Shopify Customer".equals(name)) {
+                String resolved = joinName(
+                        asString(billingAddress.get("first_name")),
+                        asString(billingAddress.get("last_name"))
+                );
+                if (resolved != null) {
+                    name = resolved;
                 }
             }
-            Object cityObj = billingAddress.get("city");
-            if (cityObj != null && !cityObj.toString().isBlank()) {
-                city = cityObj.toString();
+
+            if ("UNKNOWN".equals(phone)) {
+                String billingPhone = asString(billingAddress.get("phone"));
+                if (billingPhone != null && !billingPhone.isBlank()) {
+                    phone = billingPhone;
+                }
+            }
+
+            String billingCity = asString(billingAddress.get("city"));
+            if (billingCity != null && !billingCity.isBlank()) {
+                city = billingCity;
             }
         }
 
-        // ── 3. Fallback → shipping address ────────────────────────────────
         if (shippingAddress != null) {
-            if (name.equals("Shopify Customer")) {
-                String fn = (String) shippingAddress.getOrDefault("first_name", "");
-                String ln = (String) shippingAddress.getOrDefault("last_name",  "");
-                String resolved = (fn + " " + ln).trim();
-                if (!resolved.isEmpty()) name = resolved;
-            }
-            if (phone.equals("UNKNOWN")) {
-                Object phoneObj = shippingAddress.get("phone");
-                if (phoneObj != null && !phoneObj.toString().isBlank()) {
-                    phone = phoneObj.toString();
+            if ("Shopify Customer".equals(name)) {
+                String resolved = joinName(
+                        asString(shippingAddress.get("first_name")),
+                        asString(shippingAddress.get("last_name"))
+                );
+                if (resolved != null) {
+                    name = resolved;
                 }
             }
-            if (city.equals("Shopify")) {
-                Object cityObj = shippingAddress.get("city");
-                if (cityObj != null && !cityObj.toString().isBlank()) {
-                    city = cityObj.toString();
+
+            if ("UNKNOWN".equals(phone)) {
+                String shippingPhone = asString(shippingAddress.get("phone"));
+                if (shippingPhone != null && !shippingPhone.isBlank()) {
+                    phone = shippingPhone;
+                }
+            }
+
+            if ("Shopify".equals(city)) {
+                String shippingCity = asString(shippingAddress.get("city"));
+                if (shippingCity != null && !shippingCity.isBlank()) {
+                    city = shippingCity;
                 }
             }
         }
 
-        System.out.println("👤 Resolved — name: " + name + ", phone: " + phone + ", city: " + city);
+        List<Object> items = asList(payload.get("line_items"));
 
-        // ── 4. Resolve line items & save one lead per item ─────────────────
-        List<Map<String, Object>> items = (List<Map<String, Object>>) payload.get("line_items");
-
-        if (items == null || items.isEmpty()) {
-            throw new RuntimeException("Shopify order has no line items");
+        if (items.isEmpty()) {
+            throw new IllegalArgumentException("Shopify order has no line items");
         }
 
-        for (Map<String, Object> item : items) {
+        String rawData = toJson(payload);
 
+        for (Object rawItem : items) {
+            Map<String, Object> item = rawItem instanceof Map<?, ?> map
+                    ? (Map<String, Object>) map
+                    : null;
+
+            if (item == null) {
+                throw new IllegalArgumentException("Shopify order contains an invalid line item");
+            }
+
+            String productName = asString(item.get("title"));
+
+            if (productName == null || productName.isBlank()) {
+                throw new IllegalArgumentException("Shopify line item is missing a product title");
+            }
+
+            Product product = productRepository
+                    .findFirstByNameIgnoreCaseAndDeletedAtIsNull(productName.trim())
+                    .orElse(null);
+
+            Lead lead = new Lead();
+            lead.setName(name);
+            lead.setPhoneNumber(phone);
+            lead.setLocation(city);
+            lead.setFormName(productName);
+            lead.setStatus("NEW");
+            lead.setShopifyOrderId(shopifyOrderId);
+
+            if (product != null && product.getAssignedStaff() != null) {
+                lead.setAssignedTo(product.getAssignedStaff());
+            }
+
+            lead.setRawData(rawData);
+
+            leadRepository.save(lead);
+
+            log.info("Shopify lead saved | order: {} | product: {} | customer: {}{}",
+                    shopifyOrderId,
+                    productName,
+                    name,
+                    product == null ? " (product not in DB yet)" : "");
+        }
+    }
+
+    private Map<String, Object> asMap(Object value) {
+        return value instanceof Map<?, ?> map ? (Map<String, Object>) map : null;
+    }
+
+    private List<Object> asList(Object value) {
+        return value instanceof List<?> list ? (List<Object>) list : List.of();
+    }
+
+    private String asString(Object value) {
+        return value instanceof String text ? text : null;
+    }
+
+    private Long asLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value instanceof String text && !text.isBlank()) {
             try {
-                String productName = (String) item.get("title");
-
-                if (productName == null || productName.isBlank()) {
-                    System.out.println("⚠️ Skipping item with no title");
-                    continue;
-                }
-
-
-                com.devsam.urbantrend.Entity.Product product = productRepository
-                        .findFirstByNameIgnoreCase(productName)
-                        .orElse(null);
-
-                Lead lead = new Lead();
-                lead.setName(name);
-                lead.setPhoneNumber(phone);
-                lead.setLocation(city);
-                lead.setFormName(productName);   // ← convertLead() uses this to find the product
-                lead.setStatus("NEW");           // ← staff will manually convert
-
-                if (product != null && product.getAssignedStaff() != null) {
-                    lead.setAssignedTo(product.getAssignedStaff());
-                }
-
-                lead.setRawData(objectMapper.writeValueAsString(payload));
-
-                leadRepository.save(lead);
-                System.out.println("📋 Lead saved | Product: " + productName + " | Customer: " + name
-                        + (product == null ? " (product not in DB yet)" : ""));
-
-            } catch (Exception e) {
-                System.out.println("⚠️ Failed to save lead for item: " + item + " — " + e.getMessage());
+                return Long.parseLong(text.trim());
+            } catch (NumberFormatException ignored) {
+                return null;
             }
         }
+        return null;
+    }
 
-        System.out.println("✅ Shopify leads saved successfully for: " + name);
+    private String joinName(String firstName, String lastName) {
+        String first = firstName == null ? "" : firstName.trim();
+        String last = lastName == null ? "" : lastName.trim();
+        String joined = (first + " " + last).trim();
+        return joined.isEmpty() ? null : joined;
+    }
+
+    private String toJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("Unable to serialize Shopify payload");
+        }
     }
 }

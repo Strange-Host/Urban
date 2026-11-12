@@ -18,5 +18,4 @@ public class OrderItemResponse {
 
     private BigDecimal quantity;
     private BigDecimal sellingPrice;
-    private BigDecimal costPrice;
 }

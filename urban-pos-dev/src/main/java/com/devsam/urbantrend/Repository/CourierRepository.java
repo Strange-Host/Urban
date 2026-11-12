@@ -16,5 +16,5 @@ public interface CourierRepository extends JpaRepository<Courier, UUID> {
 
     boolean existsByPhoneNumber(String phoneNumber);
 
-    Courier findById(Long courierId);
+    boolean existsByPhoneNumberAndIdNot(String phoneNumber, UUID id);
 }

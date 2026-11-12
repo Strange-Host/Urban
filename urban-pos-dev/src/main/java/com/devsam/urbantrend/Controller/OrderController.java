@@ -1,5 +1,6 @@
 package com.devsam.urbantrend.Controller;
 
+import com.devsam.urbantrend.Dtos.AssignCourierRequest;
 import com.devsam.urbantrend.Dtos.OrderRequest;
 import com.devsam.urbantrend.Dtos.OrderResponse;
 import com.devsam.urbantrend.Dtos.StaffOrderSummary;
@@ -13,6 +14,7 @@ import com.devsam.urbantrend.Service.Auth.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -52,7 +54,7 @@ public class OrderController {
             @RequestParam(required = false) UUID courierId,
             @RequestParam(required = false) String query,
 
-            @PageableDefault(size = 10, sort = "createdAt") Pageable pageable
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
         return ResponseEntity.ok(orderService.getAll(status, staffId, courierId, query, pageable));
     }
@@ -85,6 +87,17 @@ public class OrderController {
         return ResponseEntity.ok(orderService.updateNotes(id, request, user));
     }
 
+    @PatchMapping("/{id}/courier")
+    @PreAuthorize("hasAuthority('CAN_UPDATE_ORDER')")
+    public ResponseEntity<Order> assignCourier(
+            @PathVariable UUID id,
+            @RequestBody AssignCourierRequest request,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        User user = getUser(userDetails);
+        return ResponseEntity.ok(orderService.assignCourier(id, request, user));
+    }
+
     @GetMapping("/dashboard/top-selling")
     @PreAuthorize("hasAuthority('CAN_VIEW_TOP_SELLING')")
     public ResponseEntity<?> topSelling(
@@ -113,7 +126,7 @@ public class OrderController {
     }
 
     private User getUser(UserDetails userDetails) {
-        return userRepository.findByEmail(userDetails.getUsername())
+        return userRepository.findByEmailAndDeletedAtIsNull(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 }

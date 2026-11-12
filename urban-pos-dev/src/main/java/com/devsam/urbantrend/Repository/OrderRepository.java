@@ -6,6 +6,7 @@ import com.devsam.urbantrend.Enum.OrderStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -26,7 +27,6 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             OR LOWER(o.deliveryCity) LIKE :pattern
             OR LOWER(o.deliveryNotes) LIKE :pattern
             OR o.customerId IN (SELECT c.id FROM Customer c WHERE LOWER(c.name) LIKE :pattern))
-        ORDER BY o.createdAt DESC
     """,
             countQuery = """
         SELECT COUNT(o) FROM Order o
@@ -87,7 +87,17 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     """)
     long countPaidDaysWorked(UUID staffId, LocalDateTime from, LocalDateTime to);
 
+    Optional<Order> findByIdAndDeletedAtIsNull(UUID id);
+
     Optional<Order> findByAccountNumber(String accountNumber);
+
+    @Modifying
+    @Query("""
+        UPDATE Order o
+        SET o.courierId = NULL, o.courierAssignedAt = NULL
+        WHERE o.courierId = :courierId
+    """)
+    int unassignCourier(@Param("courierId") UUID courierId);
 
 
     boolean existsByAccountNumber(String fullAccount);

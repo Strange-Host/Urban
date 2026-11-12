@@ -13,7 +13,6 @@ import com.devsam.urbantrend.Repository.UserRepository;
 import com.devsam.urbantrend.Roles.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -77,79 +76,41 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public Page<?> getAll(String query, Pageable pageable, User user) {
 
-        Page<Product> products = (query != null && !query.trim().isEmpty())
-                ? productRepository.findByNameIgnoreCaseContainingAndDeletedAtIsNull(query.trim(), pageable)
-                : productRepository.findAllByDeletedAtIsNull(pageable);
+        boolean hasQuery = query != null && !query.trim().isEmpty();
+        String trimmedQuery = hasQuery ? query.trim() : null;
+
+        Page<Product> products;
 
         if (user.getRole() == UserRole.STAFF) {
-            List<Product> filtered = products.getContent().stream()
-                    .filter(product -> product.getAssignedStaff() != null
-                            && product.getAssignedStaff().getId().equals(user.getId()))
-                    .toList();
-            products = new PageImpl<>(filtered, pageable, filtered.size());
+            products = hasQuery
+                    ? productRepository.findByNameIgnoreCaseContainingAndDeletedAtIsNullAndAssignedStaff(
+                            trimmedQuery, user, pageable)
+                    : productRepository.findAllByDeletedAtIsNullAndAssignedStaff(user, pageable);
+        } else {
+            products = hasQuery
+                    ? productRepository.findByNameIgnoreCaseContainingAndDeletedAtIsNull(trimmedQuery, pageable)
+                    : productRepository.findAllByDeletedAtIsNull(pageable);
         }
 
-        if (user.getRole() == UserRole.ADMIN) {
-            return products.map(product ->
-                    AdminProductResponse.builder()
-                            .id(product.getId())
-                            .name(product.getName())
-                            .sku(product.getSku())
-                            .sellingPrice(product.getSellingPrice())
-                            .costPrice(product.getCostPrice())
-                            .categoryId(product.getCategory().getId())
-                            .assignedStaffId(product.getAssignedStaff() != null ? product.getAssignedStaff().getId() : null)
-                            .assignedStaffName(product.getAssignedStaff() != null ? staffName(product.getAssignedStaff()) : null)
-                            .build()
-            );
-        }
-
-        return products.map(product ->
-                ProductResponse.builder()
-                        .id(product.getId())
-                        .name(product.getName())
-                        .sku(product.getSku())
-                        .sellingPrice(product.getSellingPrice())
-                        .categoryId(product.getCategory().getId())
-                        .assignedStaffId(product.getAssignedStaff() != null ? product.getAssignedStaff().getId() : null)
-                        .assignedStaffName(product.getAssignedStaff() != null ? staffName(product.getAssignedStaff()) : null)
-                        .build()
-        );
+        return products.map(product -> toResponse(product, user));
     }
 
 
     @Override
     public Page<?> search(String query, Pageable pageable, User user) {
 
-        Page<Product> products =
-                productRepository.findByNameIgnoreCaseContainingAndDeletedAtIsNull(query, pageable);
-
-        if (user.getRole() == UserRole.ADMIN) {
-            return products.map(product ->
-                    AdminProductResponse.builder()
-                            .id(product.getId())
-                            .name(product.getName())
-                            .sku(product.getSku())
-                            .sellingPrice(product.getSellingPrice())
-                            .costPrice(product.getCostPrice())
-                            .categoryId(product.getCategory().getId())
-                            .assignedStaffId(product.getAssignedStaff() != null ? product.getAssignedStaff().getId() : null)
-                            .assignedStaffName(product.getAssignedStaff() != null ? staffName(product.getAssignedStaff()) : null)
-                            .build()
-            );
+        if (query == null || query.isBlank()) {
+            throw new IllegalArgumentException("Search query is required");
         }
 
-        return products.map(product ->
-                ProductResponse.builder()
-                        .id(product.getId())
-                        .name(product.getName())
-                        .sku(product.getSku())
-                        .sellingPrice(product.getSellingPrice())
-                        .categoryId(product.getCategory().getId())
-                        .assignedStaffId(product.getAssignedStaff() != null ? product.getAssignedStaff().getId() : null)
-                        .assignedStaffName(product.getAssignedStaff() != null ? staffName(product.getAssignedStaff()) : null)
-                        .build()
-        );
+        String trimmedQuery = query.trim();
+
+        Page<Product> products = (user.getRole() == UserRole.STAFF)
+                ? productRepository.findByNameIgnoreCaseContainingAndDeletedAtIsNullAndAssignedStaff(
+                        trimmedQuery, user, pageable)
+                : productRepository.findByNameIgnoreCaseContainingAndDeletedAtIsNull(trimmedQuery, pageable);
+
+        return products.map(product -> toResponse(product, user));
     }
 
     @Override
@@ -159,6 +120,11 @@ public class ProductServiceImpl implements ProductService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Product not found")
                 );
+
+        return toResponse(product, user);
+    }
+
+    private Object toResponse(Product product, User user) {
 
         if (user.getRole() == UserRole.ADMIN) {
             return AdminProductResponse.builder()
@@ -192,7 +158,7 @@ public class ProductServiceImpl implements ProductService {
 
 
     public Product getByProductId(UUID id, User user) {
-        return productRepository.findById(id)
+        return productRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(()-> new ResourceNotFoundException(" product with id "+ id + "not found"));
     }
 

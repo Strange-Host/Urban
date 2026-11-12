@@ -148,7 +148,7 @@ public class LeadConversionService {
                     .phoneNumber(lead.getPhoneNumber())
                     .location(lead.getLocation())
                     .status(lead.getStatus())
-                    .created(OffsetDateTime.from(lead.getCreated()))
+                    .created(lead.getCreated())
                     .productName(product != null ? product.getName() : null)
                     .sellingPrice(product != null ? String.valueOf(product.getSellingPrice()) : null)
                     .build();

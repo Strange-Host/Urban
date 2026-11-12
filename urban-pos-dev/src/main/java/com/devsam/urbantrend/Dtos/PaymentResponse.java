@@ -8,7 +8,6 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -25,7 +24,7 @@ public class PaymentResponse {
     private String transactionRef;
     private String payerPhone;
     private String payerName;
-    private List<OrderResponse> order;
+    private String notes;
     private OffsetDateTime paymentDate;
 
     private PaymentStatus status;

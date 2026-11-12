@@ -144,7 +144,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public Order getById(UUID id) {
-        return orderRepository.findById(id)
+        return orderRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Order not found with id " + id)
                 );
@@ -266,7 +266,6 @@ public class OrderServiceImpl implements OrderService {
                                             .productName(item.getProduct().getName())
                                             .quantity(item.getQuantity())
                                             .sellingPrice(item.getSellingPrice())
-                                            .costPrice(item.getCostPrice())
                                             .build()
                                     ).toList();
 
@@ -325,6 +324,16 @@ public class OrderServiceImpl implements OrderService {
             LocalDate from,
             LocalDate to,
             int limit) {
+
+        if (from == null || to == null) {
+            throw new IllegalArgumentException("from and to dates are required");
+        }
+        if (from.isAfter(to)) {
+            throw new IllegalArgumentException("from date cannot be after to date");
+        }
+        if (limit < 1 || limit > 100) {
+            throw new IllegalArgumentException("limit must be between 1 and 100");
+        }
 
         List<TopSellingProductProjection> results =
                 orderRepository.findTopSellingProducts(

@@ -1,5 +1,6 @@
 package com.devsam.urbantrend.Controller;
 
+import com.devsam.urbantrend.Dtos.ProductLookupResponse;
 import com.devsam.urbantrend.Dtos.ProductRequest;
 import com.devsam.urbantrend.Dtos.ProductStaffAssignmentRequest;
 import com.devsam.urbantrend.Dtos.ProductStaffAssignmentResponse;
@@ -41,10 +42,10 @@ public class ProductController {
 
     @GetMapping("/by-name")
     @PreAuthorize("hasAuthority('CAN_VIEW_PRODUCTS')")
-    public ResponseEntity<?> getByName(@RequestParam String name) {
-        Product product = productRepository.findFirstByNameIgnoreCase(name.trim())
+    public ResponseEntity<ProductLookupResponse> getByName(@RequestParam String name) {
+        Product product = productRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(name.trim())
                 .orElseThrow(() -> new RuntimeException("Product not found: " + name));
-        return ResponseEntity.ok(product);
+        return ResponseEntity.ok(ProductLookupResponse.from(product));
     }
 
     @GetMapping
@@ -101,7 +102,7 @@ public class ProductController {
     }
 
     private User getUser(UserDetails userDetails) {
-        return userRepository.findByEmail(userDetails.getUsername())
+        return userRepository.findByEmailAndDeletedAtIsNull(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 

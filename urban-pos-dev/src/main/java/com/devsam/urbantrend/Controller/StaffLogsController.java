@@ -6,6 +6,8 @@ import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Repository.StaffLogRepository;
 import com.devsam.urbantrend.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,17 +40,23 @@ public class StaffLogsController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime to,
 
-            @RequestParam(required = false) String staffId
-    ) {
-        List<StaffLog> logs;
+            @RequestParam(required = false) String staffId,
 
-        if (from != null && to != null) {
-            logs = repository.findByTimestampBetween(from, to);
-        } else if (staffId != null) {
-            logs = repository.findByStaffId(staffId);
-        } else {
-            logs = repository.findAll();
+            @PageableDefault(size = 500) Pageable pageable
+    ) {
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new IllegalArgumentException("from must be before or equal to to");
         }
+
+        if (pageable.getPageSize() > 1000) {
+            throw new IllegalArgumentException("page size cannot exceed 1000");
+        }
+
+        String normalizedStaffId = (staffId == null || staffId.isBlank()) ? null : staffId.trim();
+
+        List<StaffLog> logs = repository
+                .search(normalizedStaffId, from, to, pageable)
+                .getContent();
 
         return toResponseList(logs);
     }
