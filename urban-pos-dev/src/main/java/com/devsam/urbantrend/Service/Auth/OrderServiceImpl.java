@@ -228,6 +228,15 @@ public class OrderServiceImpl implements OrderService {
         Map<UUID, Order> orderMap = orders.stream()
                 .collect(Collectors.toMap(Order::getId, o -> o));
 
+        Map<UUID, Customer> customerMap = customerRepository
+                .findAllById(orderMap.values().stream()
+                        .map(Order::getCustomerId)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .toList())
+                .stream()
+                .collect(Collectors.toMap(Customer::getId, c -> c));
+
         List<OrderResponse> responses = ids.stream()
                 .map(orderMap::get)
                 .filter(Objects::nonNull)
@@ -237,7 +246,7 @@ public class OrderServiceImpl implements OrderService {
                     String phoneNumber = null;
 
                     if (order.getCustomerId() != null) {
-                        var customer = customerRepository.findById(order.getCustomerId()).orElse(null);
+                        Customer customer = customerMap.get(order.getCustomerId());
                         if (customer != null) {
                             customerName = customer.getName() != null ? customer.getName() : "-";
                             phoneNumber = customer.getPhone();

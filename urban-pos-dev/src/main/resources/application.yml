@@ -17,6 +17,13 @@ spring:
     open-in-view: false
     show-sql: false
 
+  data:
+    web:
+      pageable:
+        # Largest client request is 500; refuse anything bigger instead of
+        # handing arbitrary page sizes to the database.
+        max-page-size: 500
+
 
 
 jwt:

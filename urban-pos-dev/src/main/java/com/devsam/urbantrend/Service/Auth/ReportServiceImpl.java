@@ -1,17 +1,16 @@
 package com.devsam.urbantrend.Service.Auth;
 
 import com.devsam.urbantrend.Dtos.ProfitReportResponse;
-import com.devsam.urbantrend.Entity.Order;
-import com.devsam.urbantrend.Entity.OrderItem;
+import com.devsam.urbantrend.Enum.OrderStatus;
 import com.devsam.urbantrend.Repository.ExpenseRepository;
 import com.devsam.urbantrend.Repository.OrderItemRepository;
-import com.devsam.urbantrend.Repository.OrderRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -19,29 +18,21 @@ import java.util.List;
 @Transactional
 public class ReportServiceImpl implements ReportService {
 
-    private final OrderRepository orderRepository;
+    private static final List<OrderStatus> REVENUE_STATUSES =
+            Arrays.stream(OrderStatus.values())
+                    .filter(OrderStatus::isRevenueRecognized)
+                    .toList();
+
     private final OrderItemRepository orderItemRepository;
     private final ExpenseRepository expenseRepository;
 
     @Override
     public ProfitReportResponse getProfitReport(LocalDateTime from, LocalDateTime to) {
 
-        List<Order> orders = orderRepository.findAllByCreatedAtBetweenAndDeletedAtIsNull(from, to);
+        Object[] totals = orderItemRepository.sumRevenueAndCogs(from, to, REVENUE_STATUSES);
 
-        BigDecimal revenue = BigDecimal.ZERO;
-        BigDecimal cogs = BigDecimal.ZERO;
-
-        for (Order order : orders) {
-
-            if (order.getOrderStatus() == null || !order.getOrderStatus().isRevenueRecognized()) continue;
-
-            List<OrderItem> items = orderItemRepository.findByOrder_Id(order.getId());
-
-            for (OrderItem item : items) {
-                revenue = revenue.add(item.getLineTotal());
-                cogs = cogs.add(item.getCostPrice().multiply(item.getQuantity()));
-            }
-        }
+        BigDecimal revenue = totals != null && totals.length > 0 ? toBigDecimal(totals[0]) : BigDecimal.ZERO;
+        BigDecimal cogs = totals != null && totals.length > 1 ? toBigDecimal(totals[1]) : BigDecimal.ZERO;
 
         BigDecimal grossProfit = revenue.subtract(cogs);
 
@@ -56,5 +47,11 @@ public class ReportServiceImpl implements ReportService {
                 .expenses(expenses)
                 .netProfit(netProfit)
                 .build();
+    }
+
+    private static BigDecimal toBigDecimal(Object value) {
+        if (value == null) return BigDecimal.ZERO;
+        if (value instanceof BigDecimal bd) return bd;
+        return new BigDecimal(value.toString());
     }
 }
