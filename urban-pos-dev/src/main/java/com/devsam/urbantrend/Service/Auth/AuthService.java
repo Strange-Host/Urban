@@ -35,6 +35,7 @@ public class AuthService {
     private final OtpService otpService;
     private final LogoutCheckRepository logoutCheckRepository;
 
+    @Transactional
     public RegisterResponse register(RegisterRequest request) {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -45,10 +46,24 @@ public class AuthService {
             throw new AccessDeniedException("Only ADMIN can create users");
         }
 
+        if (request.getEmail() == null || request.getEmail().isBlank()
+                || request.getPassword() == null || request.getPassword().isBlank()
+                || request.getFirstName() == null || request.getFirstName().isBlank()
+                || request.getPhoneNumber() == null || request.getPhoneNumber().isBlank()
+                || request.getRole() == null) {
+            throw new IllegalArgumentException("firstName, lastName, email, phoneNumber, password and role are required");
+        }
+
+        String email = request.getEmail().trim().toLowerCase();
+
+        if (userRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("Email already registered");
+        }
+
         User user = User.builder()
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
-                .email(request.getEmail())
+                .email(email)
                 .phoneNumber(request.getPhoneNumber())
                 .role(request.getRole())
                 .password(passwordEncoder.encode(request.getPassword()))
@@ -80,11 +95,11 @@ public class AuthService {
 
     public AuthResponse login(LoginRequest request) {
 
-        var user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        var user = userRepository.findByEmailAndDeletedAtIsNull(request.getEmail())
+                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Invalid credentials");
+            throw new IllegalArgumentException("Invalid email or password");
         }
 
         // 🔐 Send OTP
@@ -118,19 +133,20 @@ public class AuthService {
     }
 
     public AuthResponse refresh(String refreshToken) {
-        if (!jwtService.isTokenValid(refreshToken)) {
-            throw new RuntimeException("Invalid refresh token");
+        if (!jwtService.isTokenValid(refreshToken) || !jwtService.isRefreshToken(refreshToken)) {
+            throw new IllegalArgumentException("Invalid refresh token");
         }
 
         String email = jwtService.extractEmail(refreshToken);
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findByEmailAndDeletedAtIsNull(email)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));
 
         // Validate stored refresh token
         if (!refreshToken.equals(user.getRefreshToken()) ||
+                user.getRefreshTokenExpiry() == null ||
                 user.getRefreshTokenExpiry().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Refresh token expired or invalid");
+            throw new IllegalArgumentException("Refresh token expired or invalid");
         }
 
         // Build authorities the same way as login
@@ -158,13 +174,14 @@ public class AuthService {
         return new AuthResponse(newAccessToken, refreshToken, "SUCCESS");
     }
 
-    public Page<User> getAllUsers(Pageable pageable, User user) {
-
-        return userRepository.findAllByDeletedAtIsNull(pageable,user);
+    public Page<User> getAllUsers(Pageable pageable) {
+        return userRepository.findAllByDeletedAtIsNull(pageable);
     }
 
     public User getUserById(UUID id) {
-        return userRepository.findById(id).orElseThrow(()-> new ResourceNotFoundException("customer with " + id + " not found"));
+        return userRepository.findById(id)
+                .filter(user -> user.getDeletedAt() == null)
+                .orElseThrow(() -> new ResourceNotFoundException("User with id " + id + " not found"));
     }
 
     public void deleteUserById(UUID id) {
@@ -175,6 +192,8 @@ public class AuthService {
                 );
 
         user.setDeletedAt(LocalDateTime.now());
+        user.setRefreshToken(null);
+        user.setRefreshTokenExpiry(null);
         userRepository.save(user);
     }
 
@@ -185,6 +204,7 @@ public class AuthService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         user.setRefreshToken(null);
+        user.setRefreshTokenExpiry(null);
 
         user.setLastLogoutAt(LocalDateTime.now());
 
@@ -195,8 +215,8 @@ public class AuthService {
 
     public AuthResponse verifyOtp(String email, String otp) {
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findByEmailAndDeletedAtIsNull(email)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired OTP"));
 
         boolean isValid = otpService.verifyOtp(user.getPhoneNumber(), otp);
 

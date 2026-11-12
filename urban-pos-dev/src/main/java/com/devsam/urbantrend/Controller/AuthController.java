@@ -3,11 +3,13 @@ package com.devsam.urbantrend.Controller;
 import com.devsam.urbantrend.Dtos.*;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Repository.UserRepository;
+import com.devsam.urbantrend.Roles.UserRole;
 import com.devsam.urbantrend.Service.Auth.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -41,14 +43,28 @@ public class AuthController {
 //    get all users
 
     @GetMapping("/staffs")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public Page<User> findAllUsers (Pageable pageable, @AuthenticationPrincipal UserDetails userDetails){
         String email = userDetails.getUsername();
-        User user = userRepository.findByEmail(email).orElseThrow(()-> new RuntimeException("User not found"));
-        return authService.getAllUsers(pageable,user);
+        userRepository.findByEmailAndDeletedAtIsNull(email)
+                .orElseThrow(()-> new RuntimeException("User not found"));
+        return authService.getAllUsers(pageable);
     }
 
     @GetMapping("/user/{id}")
-    public User getCustomerById(@PathVariable UUID id){
+    @PreAuthorize("isAuthenticated()")
+    public User getCustomerById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails
+    ){
+        User current = getUser(userDetails);
+
+        boolean elevated = current.getRole() == UserRole.ADMIN || current.getRole() == UserRole.MANAGER;
+
+        if (!elevated && !current.getId().equals(id)) {
+            throw new AccessDeniedException("Not allowed to view this user");
+        }
+
         return authService.getUserById(id);
     }
 
@@ -60,6 +76,7 @@ public class AuthController {
 
 
     @PostMapping("/logout-check")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> logoutCheck(
             @RequestBody LogoutCheckRequest request,
             @AuthenticationPrincipal UserDetails userDetails
@@ -75,6 +92,7 @@ public class AuthController {
         return ResponseEntity.ok().build();
     }
     @PostMapping("/logout")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<String> logout(
             @AuthenticationPrincipal UserDetails userDetails
     ) {

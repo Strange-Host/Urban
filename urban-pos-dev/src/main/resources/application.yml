@@ -28,19 +28,26 @@ jwt:
 
 webhook:
   wpforms:
-    secret:
-      wpforms-urbantrend-9fA3xL7Q2P
+    secret: ${WPFORMS_WEBHOOK_SECRET:}
 
 zettatel:
-  api-key: ${ZETTATEL_API_KEY:fbd55952c19148a240f0d0e5e8c4fca6bd85b05a}
-  user-id: ${ZETTATEL_USER:urbantrends}
-  password: ${ZETTATEL_PASS:Samuelmithia1}
+  api-key: ${ZETTATEL_API_KEY:}
+  user-id: ${ZETTATEL_USER:}
+  password: ${ZETTATEL_PASS:}
   sender-id: KamkunjiHub
 
 kcb:
-  consumer-key: ${KCB_CONSUMER_KEY:xXawxvrTJLikkbCn4Dgj5oGvNuwa}
-  consumer-secret: ${KCB_CONSUMER_SECRET:PM6mjDHNJ5VFfxYB_quwu8pKKdMa}
+  consumer-key: ${KCB_CONSUMER_KEY:}
+  consumer-secret: ${KCB_CONSUMER_SECRET:}
   base-url: ${KCB_BASE_URL:https://uat.buni.kcbgroup.com}
+  ipn:
+    secret: ${KCB_IPN_SECRET:}
+
+seed:
+  admin:
+    email: ${SEED_ADMIN_EMAIL:}
+    password: ${SEED_ADMIN_PASSWORD:}
+    phone: ${SEED_ADMIN_PHONE:}
 
 server:
   port: 8080

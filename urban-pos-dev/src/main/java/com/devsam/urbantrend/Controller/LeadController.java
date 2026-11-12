@@ -11,6 +11,7 @@ import com.devsam.urbantrend.Service.Auth.LeadService;
 import com.devsam.urbantrend.Service.Auth.StaffLogService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -21,12 +22,13 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/leads")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class LeadController {
 
@@ -37,23 +39,47 @@ public class LeadController {
     private final UserRepository userRepository;
     private final StaffLogService staffLogService;
 
+    @Value("${webhook.wpforms.secret:}")
+    private String webhookSecret;
+
     @PostMapping
-    public ResponseEntity<String> createLead(@RequestBody Map<String, Object> payload) throws Exception {
+    public ResponseEntity<String> createLead(
+            @RequestParam(name = "secret", required = false) String querySecret,
+            @RequestHeader(name = "X-WPForms-Secret", required = false) String headerSecret,
+            @RequestBody Map<String, Object> payload
+    ) throws Exception {
+
+        if (webhookSecret == null || webhookSecret.isBlank()) {
+            return ResponseEntity.status(503).body("Webhook secret is not configured");
+        }
+
+        String provided = querySecret != null ? querySecret : headerSecret;
+
+        if (provided == null || !MessageDigest.isEqual(
+                provided.getBytes(StandardCharsets.UTF_8),
+                webhookSecret.getBytes(StandardCharsets.UTF_8))) {
+            return ResponseEntity.status(403).body("Invalid webhook secret");
+        }
 
         ObjectMapper mapper = new ObjectMapper();
         Lead lead = new Lead();
 
-        if (payload.get("formId") != null) {
-            lead.setFormId(Integer.valueOf(payload.get("formId").toString()));
-        }
+        lead.setFormId(parseInteger(payload.get("formId"), "formId"));
+
         if (payload.get("formName") != null) {
             lead.setFormName(payload.get("formName").toString());
         }
-        if (payload.get("wpEntryId") != null) {
-            lead.setWpEntryId(Long.valueOf(payload.get("wpEntryId").toString()));
+
+        lead.setWpEntryId(parseLong(payload.get("wpEntryId"), "wpEntryId"));
+
+        if (lead.getWpEntryId() != null && repository.existsByWpEntryId(lead.getWpEntryId())) {
+            return ResponseEntity.ok("Duplicate lead ignored.");
         }
 
-        Map<String, Object> fields = (Map<String, Object>) payload.get("fields");
+        Object rawFields = payload.get("fields");
+        Map<String, Object> fields = rawFields instanceof Map
+                ? (Map<String, Object>) rawFields
+                : null;
 
         if (fields != null) {
             if (fields.containsKey("Name")) {
@@ -325,5 +351,27 @@ public class LeadController {
         }
 
         return ResponseEntity.ok().build();
+    }
+
+    private Integer parseInteger(Object value, String field) {
+        if (value == null || value.toString().isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(value.toString().trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(field + " must be a whole number");
+        }
+    }
+
+    private Long parseLong(Object value, String field) {
+        if (value == null || value.toString().isBlank()) {
+            return null;
+        }
+        try {
+            return Long.valueOf(value.toString().trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(field + " must be a whole number");
+        }
     }
 }

@@ -16,10 +16,15 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
@@ -48,16 +53,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         final String authHeader = request.getHeader("Authorization");
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        String token = null;
+
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
+        } else if ("/api/v1/notifications/subscribe".equals(path)) {
+            // EventSource cannot send an Authorization header, so the SSE
+            // endpoint accepts the access token as a query parameter.
+            token = request.getParameter("access_token");
+        }
+
+        if (token == null || token.isBlank()) {
             filterChain.doFilter(request, response);
             return;
         }
 
         try {
 
-            final String token = authHeader.substring(7);
-
-            if (!jwtService.isTokenValid(token)) {
+            if (!jwtService.isTokenValid(token) || !jwtService.isAccessToken(token)) {
                 filterChain.doFilter(request, response);
                 return;
             }
@@ -84,7 +97,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
 
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.debug("JWT authentication failed for {}: {}", path, e.getMessage());
         }
 
         filterChain.doFilter(request, response);

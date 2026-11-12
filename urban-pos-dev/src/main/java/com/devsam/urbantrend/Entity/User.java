@@ -2,6 +2,7 @@ package com.devsam.urbantrend.Entity;
 
 
 import com.devsam.urbantrend.Roles.UserRole;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -28,10 +29,12 @@ public class User extends BaseEntity {
     @Column(name = "phone_number", nullable = false)
     private String phoneNumber;
 
+    @JsonIgnore
     @Column(name = "refresh_token")
     private String refreshToken;
 
 
+    @JsonIgnore
     @Column(name = "refresh_token_expiry")
     private LocalDateTime refreshTokenExpiry;
 
@@ -39,6 +42,7 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     private UserRole role;
 
+    @JsonIgnore
     @Column(nullable = false)
     private String password;
 

@@ -8,6 +8,7 @@ import com.devsam.urbantrend.Service.Auth.NotificationSseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -30,9 +31,13 @@ public class NotificationController {
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe(@AuthenticationPrincipal UserDetails userDetails) {
 
+        if (userDetails == null) {
+            throw new AccessDeniedException("Not authenticated");
+        }
+
         log.info("📡 SSE subscribe request received | username: {}", userDetails.getUsername());
 
-        User user = userRepository.findByEmail(userDetails.getUsername())
+        User user = userRepository.findByEmailAndDeletedAtIsNull(userDetails.getUsername())
                 .orElseThrow(() -> {
                     return new RuntimeException("User not found");
                 });
@@ -48,7 +53,7 @@ public class NotificationController {
 
         log.info("🔔 Fetching unread notifications | username: {}", userDetails.getUsername());
 
-        User user = userRepository.findByEmail(userDetails.getUsername())
+        User user = userRepository.findByEmailAndDeletedAtIsNull(userDetails.getUsername())
                 .orElseThrow(() -> {
                     return new RuntimeException("User not found");
                 });
@@ -68,10 +73,19 @@ public class NotificationController {
 
     // ── Mark Single Notification as Read ──────────────────────────────────────
     @PatchMapping("/{id}/read")
-    public void markRead(@PathVariable UUID id) {
+    public void markRead(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+
+        User user = userRepository.findByEmailAndDeletedAtIsNull(userDetails.getUsername())
+                .orElseThrow(() -> new AccessDeniedException("User not found"));
 
         notificationRepository.findById(id).ifPresentOrElse(
                 n -> {
+                    if (!n.getUserId().equals(user.getId())) {
+                        throw new AccessDeniedException("Not allowed to modify this notification");
+                    }
                     if (n.isRead()) {
                         return;
                     }
@@ -86,7 +100,7 @@ public class NotificationController {
     @PatchMapping("/read-all")
     public void markAllRead(@AuthenticationPrincipal UserDetails userDetails) {
 
-        User user = userRepository.findByEmail(userDetails.getUsername())
+        User user = userRepository.findByEmailAndDeletedAtIsNull(userDetails.getUsername())
                 .orElseThrow(() -> {
                     log.error("❌ markAllRead failed — user not found: {}", userDetails.getUsername());
                     return new RuntimeException("User not found");

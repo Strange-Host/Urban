@@ -8,6 +8,7 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
@@ -17,6 +18,10 @@ import java.util.function.Function;
 
 @Service
 public class JwtService {
+
+    private static final String TOKEN_TYPE_CLAIM = "type";
+    private static final String TYPE_ACCESS = "access";
+    private static final String TYPE_REFRESH = "refresh";
 
     @Value("${jwt.secret}")
     private String secretKey;
@@ -44,11 +49,30 @@ public class JwtService {
         Map<String, Object> claims = new HashMap<>();
         claims.put("role", role);
         claims.put("authorities", authorities); // ✅ embedded in token
+        claims.put(TOKEN_TYPE_CLAIM, TYPE_ACCESS);
         return buildToken(email, claims, accessTokenExpiration);
     }
 
     public String generateRefreshToken(String email) {
-        return buildToken(email, new HashMap<>(), refreshTokenExpiration);
+        Map<String, Object> claims = new HashMap<>();
+        claims.put(TOKEN_TYPE_CLAIM, TYPE_REFRESH);
+        return buildToken(email, claims, refreshTokenExpiration);
+    }
+
+    public boolean isAccessToken(String token) {
+        try {
+            return TYPE_ACCESS.equals(extractClaim(token, claims -> claims.get(TOKEN_TYPE_CLAIM, String.class)));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public boolean isRefreshToken(String token) {
+        try {
+            return TYPE_REFRESH.equals(extractClaim(token, claims -> claims.get(TOKEN_TYPE_CLAIM, String.class)));
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private String buildToken(String email, Map<String, Object> claims, long expiration) {
@@ -90,7 +114,24 @@ public class JwtService {
 
     private Key getSignInKey() {
 
-        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+        if (secretKey == null || secretKey.isBlank()) {
+            throw new IllegalStateException("jwt.secret is not configured");
+        }
+
+        byte[] keyBytes = null;
+        try {
+            keyBytes = Decoders.BASE64.decode(secretKey);
+        } catch (Exception ignored) {
+            // Not valid Base64 - fall back to the raw secret below.
+        }
+
+        if (keyBytes == null || keyBytes.length < 32) {
+            keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
+        }
+
+        if (keyBytes.length < 32) {
+            throw new IllegalStateException("jwt.secret must be at least 32 bytes (256 bits)");
+        }
 
         return Keys.hmacShaKeyFor(keyBytes);
     }

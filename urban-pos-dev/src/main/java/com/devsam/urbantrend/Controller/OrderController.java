@@ -8,6 +8,7 @@ import com.devsam.urbantrend.Entity.Order;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Enum.OrderStatus;
 import com.devsam.urbantrend.Repository.UserRepository;
+import com.devsam.urbantrend.Roles.UserRole;
 import com.devsam.urbantrend.Service.Auth.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -15,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -95,7 +97,18 @@ public class OrderController {
 
     @GetMapping("/staff/{staffId}/summary")
     @PreAuthorize("hasAuthority('CAN_VIEW_ORDER_SUMMARY')")
-    public StaffOrderSummary getStaffSummary(@PathVariable UUID staffId) {
+    public StaffOrderSummary getStaffSummary(
+            @PathVariable UUID staffId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        User current = getUser(userDetails);
+
+        boolean elevated = current.getRole() == UserRole.ADMIN || current.getRole() == UserRole.MANAGER;
+
+        if (!elevated && !current.getId().equals(staffId)) {
+            throw new AccessDeniedException("Not allowed to view this summary");
+        }
+
         return orderService.getStaffSummary(staffId);
     }
 

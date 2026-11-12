@@ -13,9 +13,13 @@ import java.util.UUID;
 public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmail(String email);
 
+    Optional<User> findByEmailAndDeletedAtIsNull(String email);
+
     boolean existsByRole(UserRole userRole);
 
-    Page<User> findAllByDeletedAtIsNull(Pageable pageable, User user);
+    boolean existsByEmail(String email);
+
+    Page<User> findAllByDeletedAtIsNull(Pageable pageable);
 
     List<User> findByRole(UserRole role);
 

@@ -35,17 +35,43 @@ public class KcbIpnServiceImpl implements KcbIpnService {
 
         log.info("🔔 KCB IPN received");
 
+        if (request == null || request.getRequestPayload() == null
+                || request.getRequestPayload().getAdditionalData() == null
+                || request.getRequestPayload().getAdditionalData().getNotificationData() == null) {
+            throw new IllegalArgumentException("Malformed KCB IPN payload");
+        }
+
         var notification = request.getRequestPayload()
                 .getAdditionalData()
                 .getNotificationData();
 
         String accountNumber = notification.getBusinessKey();
         String transactionRef = notification.getTransactionID();
-        BigDecimal amount = new BigDecimal(notification.getTransactionAmt());
+
+        if (transactionRef == null || transactionRef.isBlank()) {
+            throw new IllegalArgumentException("KCB IPN is missing transactionID");
+        }
+
+        BigDecimal amount;
+        try {
+            amount = new BigDecimal(notification.getTransactionAmt());
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("KCB IPN has an invalid transactionAmt");
+        }
+
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("KCB IPN amount must be greater than zero");
+        }
+
+        String currency = notification.getCurrency() == null || notification.getCurrency().isBlank()
+                ? "KES"
+                : notification.getCurrency().trim().toUpperCase();
+
+        boolean supportedCurrency = "KES".equals(currency);
 
         log.info("BusinessKey: {}", accountNumber);
         log.info("TransactionRef: {}", transactionRef);
-        log.info("Amount: {}", amount);
+        log.info("Amount: {} {}", amount, currency);
         log.info("Phone: {}", notification.getDebitMSISDN());
 
         if (paymentRepository.findByTransactionRef(transactionRef).isPresent()) {
@@ -60,10 +86,16 @@ public class KcbIpnServiceImpl implements KcbIpnService {
         );
 
         // Try finding the order
-        Order order = orderRepository.findByAccountNumber(accountNumber)
-                .orElse(null);
+        Order order = null;
 
-        if (order == null) {
+        if (supportedCurrency && accountNumber != null && !accountNumber.isBlank()) {
+            order = orderRepository.findByAccountNumber(accountNumber)
+                    .orElse(null);
+        }
+
+        if (!supportedCurrency) {
+            log.warn("⚠ Unsupported KCB currency {}, payment stored as unmatched", currency);
+        } else if (order == null) {
             log.warn("⚠ No order found for account number={}", accountNumber);
         } else {
             log.info("✅ Order found: id={}", order.getId());
@@ -74,17 +106,20 @@ public class KcbIpnServiceImpl implements KcbIpnService {
                 .order(order) // can be null
                 .method(PaymentMethod.BANK)
                 .amount(amount)
-                .currency(notification.getCurrency() == null ? "KES" : notification.getCurrency())
+                .currency(currency)
                 .transactionRef(transactionRef)
                 .payerPhone(notification.getDebitMSISDN())
                 .payerName(payerName)
                 .paymentDate(OffsetDateTime.now())
                 .status(PaymentStatus.SUCCESS)
                 .matched(order != null)
+                .suspicious(!supportedCurrency)
                 .notes(
-                        order == null
-                                ? "UNMATCHED KCB IPN: " + notification.getNarration()
-                                : "KCB IPN: " + notification.getNarration()
+                        !supportedCurrency
+                                ? "UNMATCHED KCB IPN: unsupported currency " + currency
+                                : order == null
+                                    ? "UNMATCHED KCB IPN: " + notification.getNarration()
+                                    : "KCB IPN: " + notification.getNarration()
                 )
                 .build();
 
@@ -93,7 +128,7 @@ public class KcbIpnServiceImpl implements KcbIpnService {
         log.info("💰 Payment saved successfully transactionRef={}", transactionRef);
 
         // Stop here if no order matched
-        if (order == null) {
+        if (!supportedCurrency || order == null) {
             log.warn("🏁 Payment stored as unmatched transactionRef={}", transactionRef);
             return;
         }

@@ -90,6 +90,11 @@ public class MessagingService {
 
         String normalizedPhone = normalizePhone(phone);
 
+        if (normalizedPhone == null || normalizedPhone.isBlank()) {
+            log.warn("Cannot send OTP SMS: no valid phone number");
+            return;
+        }
+
         String message = """
             URBAN TRENDS 🔐
             Your login OTP is: %s
@@ -98,9 +103,16 @@ public class MessagingService {
             Do not share this code with anyone.
             """.formatted(otp);
 
-        log.info("📲 Sending OTP SMS | Phone: {} | OTP: {}", normalizedPhone, otp);
+        log.info("📲 Sending OTP SMS | Phone: {}", maskPhone(normalizedPhone));
 
         smsProvider.sendSms(normalizedPhone, message);
+    }
+
+    private String maskPhone(String phone) {
+        if (phone.length() <= 4) {
+            return "****";
+        }
+        return "****" + phone.substring(phone.length() - 4);
     }
 
     private String normalizePhone(String phone) {

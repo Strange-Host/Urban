@@ -6,10 +6,10 @@ import com.devsam.urbantrend.Service.Auth.Messaging.MessagingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -18,26 +18,40 @@ public class OtpService {
     private final MessagingService messagingService;
 
     // ⚠️ In production → replace with Redis
-    private final Map<String, OtpData> otpStorage = new HashMap<>();
+    private final Map<String, OtpData> otpStorage = new ConcurrentHashMap<>();
+    private final Map<String, LocalDateTime> lastSentAt = new ConcurrentHashMap<>();
 
+    private static final SecureRandom RANDOM = new SecureRandom();
     private static final int OTP_EXPIRY_MINUTES = 5;
     private static final int MAX_ATTEMPTS = 3;
+    private static final int RESEND_COOLDOWN_SECONDS = 60;
 
     // 🔥 Generate + Send OTP
     public void generateAndSendOtp(User user) {
 
-        String otp = String.valueOf(100000 + new Random().nextInt(900000));
+        String phone = user.getPhoneNumber();
+        LocalDateTime now = LocalDateTime.now();
+
+        LocalDateTime lastSent = lastSentAt.get(phone);
+        if (lastSent != null && lastSent.plusSeconds(RESEND_COOLDOWN_SECONDS).isAfter(now)) {
+            throw new IllegalArgumentException("Please wait before requesting another OTP");
+        }
+
+        otpStorage.entrySet().removeIf(entry -> entry.getValue().getExpiry().isBefore(now));
+        lastSentAt.entrySet().removeIf(entry -> entry.getValue().plusHours(1).isBefore(now));
+
+        String otp = String.format("%06d", RANDOM.nextInt(1_000_000));
 
         OtpData otpData = new OtpData(
                 otp,
-                LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES),
+                now.plusMinutes(OTP_EXPIRY_MINUTES),
                 0
         );
 
-        otpStorage.put(user.getPhoneNumber(), otpData);
+        otpStorage.put(phone, otpData);
+        lastSentAt.put(phone, now);
 
-        messagingService.sendOtpSms(user.getPhoneNumber(), otp);
-
+        messagingService.sendOtpSms(phone, otp);
     }
 
     public boolean verifyOtp(String phoneNumber, String inputOtp) {
@@ -61,7 +75,7 @@ public class OtpService {
         }
 
         // ❌ Wrong OTP
-        if (!data.getOtp().equals(inputOtp)) {
+        if (inputOtp == null || !data.getOtp().equals(inputOtp)) {
             data.setAttempts(data.getAttempts() + 1);
             return false;
         }
@@ -70,5 +84,4 @@ public class OtpService {
         otpStorage.remove(phoneNumber);
         return true;
     }
-
 }

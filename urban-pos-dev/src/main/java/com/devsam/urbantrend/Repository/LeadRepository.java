@@ -13,6 +13,8 @@ import java.util.List;
 public interface LeadRepository extends JpaRepository<Lead, Long> {
     Page<Lead> findAllByStatus(String status, Pageable pageable);
 
+    boolean existsByWpEntryId(Long wpEntryId);
+
     Page<Lead> findByStatus(String status, Pageable pageable);
 
     Page<Lead> findByAssignedTo(User assignedTo, Pageable pageable);
