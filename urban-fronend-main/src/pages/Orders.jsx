@@ -18,21 +18,31 @@ import {
 import { PageHeader, EmptyState, LoadingBlock } from "../components/ui";
 import {
   inputStyle,
-  labelStyle,
-  primaryBtn,
   secondaryBtn as cancelBtn,
-  actionBtn,
-  dangerActionBtn,
   pageBtnStyle,
-  modalOverlay,
-  modalBox as baseModalBox,
-  modalTitle,
-  closeBtn,
   tableCard,
   alertError,
 } from "../components/styles";
-
-const MPESA_PAYBILL = "522522";
+import {
+  AddOrderModal,
+  CashPaymentModal,
+  EditStatusModal,
+  OrderNotesModal,
+  ReceiptModal,
+} from "./orders/OrderModals";
+import { addOrderBtn, editBtn, noteBtn, cashPaymentBtn } from "./orders/orderStyles";
+import {
+  MPESA_PAYBILL,
+  ORDER_STATUSES,
+  formatDateTime,
+  formatMoney,
+  getOrderProductLines,
+  getParcelAgeHighlight,
+  niceStatus,
+  previewText,
+  statusStyle,
+} from "./orders/orderUtils";
+import "./orders/orders.css";
 
 export default function Orders() {
   const { user, can } = useAuth();
@@ -142,23 +152,6 @@ export default function Orders() {
       isMounted = false;
     };
   }, [user, servedByName]);
-
-  // Order status enums
-  const ORDER_STATUSES = [
-    "AWAITING_DISPATCH",
-    "DISPATCHED_PAID",
-    "DISPATCHED_PARTIAL",
-    "DISPATCHED_UNPAID",
-    "DELIVERED_PAID",
-    "DELIVERED_UNPAID",
-    "RETURN_REQUESTED",
-    "RETURN_IN_TRANSIT",
-    "RETURNED_AWAITING_INSPECTION",
-    "RETURNED_GOOD",
-    "RETURNED_DAMAGED",
-    "CANCELLED",
-    "COMPLETED",
-  ];
 
   useEffect(() => {
     const controller = new AbortController();
@@ -289,72 +282,6 @@ export default function Orders() {
     setCashPaymentOrder(null);
     setCashPaymentAmount("");
     setCashPaymentError("");
-  }
-
-  function formatMoney(value) {
-    return `KES ${Number(value || 0).toLocaleString()}`;
-  }
-
-  function statusStyle(status) {
-    const s = String(status || "").toUpperCase();
-
-    if (s.includes("DELIVERED") || s === "COMPLETED")
-      return { color: "#166534", bg: "#dcfce7" };
-
-    if (s.includes("DISPATCHED"))
-      return { color: "#1d4ed8", bg: "#dbeafe" };
-
-    if (s.includes("AWAITING"))
-      return { color: "#b45309", bg: "#ffedd5" };
-
-    if (s === "CANCELLED") return { color: "#9f1239", bg: "#ffe4e6" };
-
-    return { color: "#374151", bg: "#f3f4f6" };
-  }
-
-  function niceStatus(status) {
-    return String(status || "")
-      .replaceAll("_", " ")
-      .toLowerCase()
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-  }
-
-  // Return a color hex for highlighting rows/cards based on age and status
-  function getParcelAgeHighlight(order) {
-    if (!order) return null;
-    const createdAt = order.createdAt ? new Date(order.createdAt) : null;
-    if (!createdAt || isNaN(createdAt.getTime())) return null;
-
-    const days = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
-    const status = String(order.orderStatus || "").toUpperCase();
-
-    // Dispatched and paid: distinct color
-    if (status.includes("DISPATCHED") && status.includes("PAID")) {
-      return "#0ea5a4"; // teal for dispatched+paid
-    }
-
-    // Green: picked and paid (status includes PAID and is delivered/completed)
-    if (
-      status.includes("PAID") &&
-      (status.includes("DELIVERED") || status === "COMPLETED")
-    ) {
-      return "#16a34a"; // green
-    }
-
-    // Special: DISPATCHED but UNPAID -> show its own color initially,
-    // but after 7 days, if still not delivered/paid, fall through to age rules.
-    if (status.includes("DISPATCHED") && status.includes("UNPAID")) {
-      if (days < 7) return "#1d4ed8"; // blue for recently dispatched-unpaid
-      // else allow fallthrough so days>=7 becomes orange, >=14 becomes red
-    }
-
-    // Red: more than or equal to 14 days and not collected/paid
-    if (days >= 14) return "#dc2626"; // red
-
-    // Orange: more than or equal to 7 days and not collected/paid
-    if (days >= 7) return "#f97316"; // orange
-
-    return null;
   }
 
   function handleCustomerChange(e) {
@@ -627,305 +554,8 @@ export default function Orders() {
     }
   }
 
-  function previewText(text, maxLength = 60) {
-    if (!text) return "No delivery notes";
-    return text.length <= maxLength ? text : `${text.slice(0, maxLength)}…`;
-  }
-
-  function getOrderProductLines(order) {
-    const itemList = [order.items, order.orderItems, order.products]
-      .find((value) => Array.isArray(value) && value.length > 0);
-
-    if (itemList) {
-      const lines = itemList
-        .map((item) => {
-          const name = typeof item === "string"
-            ? item
-            : item.productName || item.product?.name || item.name;
-          if (!name) return null;
-          const quantity = item.quantity ?? item.qty;
-          return quantity != null ? `${name} (×${quantity})` : String(name);
-        })
-        .filter(Boolean);
-
-      if (lines.length) return lines;
-    }
-
-    return [order.productName || "-"];
-  }
-
   return (
     <div className="orders-page" style={{ width: "100%", boxSizing: "border-box" }}>
-      {/*  Responsive CSS must be INSIDE return */}
-      <style>{`
-        @media (max-width: 768px) {
-          .orders-page {
-            width: 100%;
-            box-sizing: border-box;
-          }
-
-          .desktop-table-header,
-          .desktop-row {
-            display: none !important;
-          }
-
-          .orders-table {
-            border-radius: 12px !important;
-          }
-
-          .orders-filter {
-            display: grid !important;
-            grid-template-columns: 1fr;
-            gap: 8px !important;
-          }
-
-          .orders-filter select,
-          .orders-filter input {
-            min-width: 0;
-            width: 100%;
-            box-sizing: border-box;
-          }
-
-          .mobile-card {
-            display: block;
-            padding: 14px 12px;
-            border-top: 1px solid #f3f4f6;
-            background: #fff;
-          }
-
-          .mobile-card-top {
-            align-items: flex-start !important;
-          }
-
-          .mobile-card-customer {
-            min-width: 0;
-            overflow-wrap: anywhere;
-          }
-
-          .mobile-card-summary {
-            flex: 0 0 auto;
-            max-width: 46%;
-          }
-
-          .mobile-card-products {
-            overflow-wrap: anywhere;
-            line-height: 1.45;
-          }
-
-          .orders-pagination {
-            align-items: center !important;
-            justify-content: center !important;
-          }
-
-          .orders-pagination-controls {
-            width: 100%;
-            justify-content: center;
-          }
-
-          .responsive-grid-2 {
-            grid-template-columns: 1fr !important;
-          }
-
-          .responsive-grid-3 {
-            grid-template-columns: 1fr !important;
-          }
-
-          .header-flex {
-            flex-direction: column;
-            align-items: flex-start !important;
-            gap: 12px;
-          }
-
-          .header-actions {
-            width: 100%;
-            justify-content: space-between;
-          }
-
-          .actions-row {
-            flex-wrap: wrap;
-          }
-
-          .actions-row button {
-            min-height: 40px;
-            flex: 1 1 120px;
-          }
-
-          .orders-modal-overlay {
-            padding: 8px !important;
-            place-items: center stretch !important;
-            overflow-y: auto;
-          }
-
-          .orders-modal,
-          .orders-modal-small {
-            width: 100% !important;
-            max-width: 100% !important;
-            max-height: calc(100dvh - 16px);
-            overflow-y: auto;
-            padding: 14px !important;
-            border-radius: 14px !important;
-            box-sizing: border-box;
-          }
-
-          .orders-modal-footer {
-            position: sticky;
-            bottom: -14px;
-            padding: 12px 0 2px;
-            background: #fff;
-          }
-
-          .orders-create-button {
-            width: 100%;
-            min-height: 44px;
-          }
-        }
-
-        @media (max-width: 420px) {
-          .orders-page {
-            width: 100%;
-            min-height: 100%;
-            box-sizing: border-box;
-          }
-
-          .header-actions {
-            gap: 6px !important;
-          }
-
-          .header-actions > div {
-            width: 32px !important;
-            height: 32px !important;
-          }
-
-          .orders-filter {
-            grid-template-columns: 1fr !important;
-          }
-
-          .mobile-card-summary {
-            max-width: 52%;
-          }
-        }
-
-        @media (min-width: 769px) {
-          .mobile-card {
-            display: none;
-          }
-        }
-
-        .print-receipt {
-          display: none;
-        }
-
-        .receipt-paper {
-          width: 80mm;
-          box-sizing: border-box;
-          padding: 8mm;
-          color: #111827;
-          background: #fff;
-          font-family: Arial, sans-serif;
-          font-size: 12px;
-        }
-
-        .receipt-header {
-          text-align: center;
-          border-bottom: 2px solid #111827;
-          padding-bottom: 10px;
-          margin-bottom: 12px;
-        }
-
-        .receipt-header h1 {
-          margin: 0;
-          font-size: 20px;
-          letter-spacing: 1px;
-        }
-
-        .receipt-title {
-          margin: 5px 0 0;
-          font-size: 11px;
-          text-transform: uppercase;
-          color: #4b5563;
-        }
-
-        .receipt-section {
-          border-bottom: 1px dashed #9ca3af;
-          padding: 4px 0 8px;
-          margin-bottom: 8px;
-        }
-
-        .receipt-row {
-          display: flex;
-          justify-content: space-between;
-          gap: 12px;
-          margin: 6px 0;
-        }
-
-        .receipt-row strong:last-child {
-          text-align: right;
-          overflow-wrap: anywhere;
-        }
-
-        .receipt-total {
-          font-size: 15px;
-          font-weight: 800;
-          border-top: 2px solid #111827;
-          padding-top: 9px;
-        }
-
-        .receipt-payment {
-          background: #f3f4f6;
-          padding: 9px;
-          margin-top: 10px;
-        }
-
-        .receipt-payment-value {
-          font-size: 18px !important;
-        }
-
-        .receipt-footer {
-          text-align: center;
-          margin-top: 14px;
-          color: #4b5563;
-          font-size: 11px;
-        }
-
-        @media print {
-          @page {
-            size: 80mm auto;
-            margin: 0;
-          }
-
-          html,
-          body,
-          #root {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #fff !important;
-            width: 80mm !important;
-            height: auto !important;
-            overflow: visible !important;
-          }
-
-          #root > *:not(.print-receipt) {
-            display: none !important;
-            visibility: hidden !important;
-          }
-
-          .print-receipt,
-          .print-receipt * {
-            visibility: visible !important;
-          }
-
-          .print-receipt {
-            display: block !important;
-            position: static !important;
-            width: 80mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #fff !important;
-            page-break-inside: avoid;
-            break-inside: avoid;
-          }
-        }
-      `}</style>
 
       {/* Header */}
       <PageHeader title="Orders" subtitle="Create, track and settle customer orders">
@@ -1229,496 +859,65 @@ export default function Orders() {
         )}
       </div>
 
-      {/* ADD ORDER MODAL */}
       {isAddOpen && (
-        <div className="orders-modal-overlay" style={modalOverlay} onClick={closeAddModal}>
-          <div className="orders-modal" style={modalBox} onClick={(e) => e.stopPropagation()}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 12,
-              }}
-            >
-              <h3 style={{ ...modalTitle, margin: 0 }}>Create Order</h3>
-
-              <button onClick={closeAddModal} style={xBtn}><FiX size={16} /></button>
-            </div>
-
-            {/* Customer */}
-            <div style={sectionTitle}>Customer</div>
-            <div
-              className="responsive-grid-2"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 12,
-              }}
-            >
-              <input
-                name="name"
-                value={customerForm.name}
-                onChange={handleCustomerChange}
-                placeholder="Customer Name"
-                style={inputStyle}
-              />
-              <input
-                name="phone"
-                value={customerForm.phone}
-                onChange={handleCustomerChange}
-                placeholder="Phone Number"
-                style={inputStyle}
-              />
-              <input
-                name="email"
-                value={customerForm.email}
-                onChange={handleCustomerChange}
-                placeholder="Email (optional)"
-                style={inputStyle}
-              />
-              <input
-                name="city_town"
-                value={customerForm.city_town}
-                onChange={handleCustomerChange}
-                placeholder="City / Town"
-                style={inputStyle}
-              />
-            </div>
-
-            <div style={{ marginBottom: 12, marginTop: 12 }}>
-              <label style={labelStyle}>
-                Order Type
-              </label>
-
-              <select
-                value={orderForm.orderType}
-                onChange={(e) =>
-                  setOrderForm((f) => ({ ...f, orderType: e.target.value }))
-                }
-                style={inputStyle}
-              >
-                <option value="COUNTER">COUNTER (Walk-in)</option>
-                <option value="ONLINE">ONLINE (Delivery)</option>
-              </select>
-            </div>
-
-            {orderForm.orderType === "ONLINE" && (
-              <>
-                <div style={{ ...sectionTitle, marginTop: 16 }}>
-                  Delivery
-                </div>
-
-                <div
-                  className="responsive-grid-2"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 12,
-                  }}
-                >
-                  <input
-                    name="deliveryCity"
-                    value={orderForm.deliveryCity}
-                    onChange={handleOrderChange}
-                    placeholder="Delivery City"
-                    style={inputStyle}
-                  />
-                  <input
-                    name="deliveryNotes"
-                    value={orderForm.deliveryNotes}
-                    onChange={handleOrderChange}
-                    placeholder="Delivery Notes"
-                    style={inputStyle}
-                  />
-                </div>
-              </>
-            )}
-
-            <div style={{ marginTop: 12, marginBottom: 12 }}>
-              <label style={labelStyle}>
-                Discount (KES)
-              </label>
-              <input
-                name="discount"
-                value={orderForm.discount}
-                onChange={handleOrderChange}
-                placeholder="0"
-                type="number"
-                min="0"
-                style={inputStyle}
-              />
-            </div>
-
-            {/* Items */}
-            <div style={{ ...sectionTitle, marginTop: 16 }}>
-              Items
-            </div>
-
-            <div
-              className="responsive-grid-3"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "2fr 1fr 1fr",
-                gap: 12,
-                alignItems: "center",
-              }}
-            >
-              <select
-                name="productId"
-                value={itemForm.productId}
-                onChange={handleItemChange}
-                style={inputStyle}
-              >
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.sku})
-                  </option>
-                ))}
-              </select>
-
-              <input
-                name="quantity"
-                value={itemForm.quantity}
-                onChange={handleItemChange}
-                placeholder="Qty"
-                type="number"
-                style={inputStyle}
-              />
-
-              <button onClick={addItemToCart} style={addItemBtn}>
-                + Add
-              </button>
-            </div>
-
-            {/* Cart */}
-            {cartItems.length > 0 && (
-              <div style={{ marginTop: 12 }}>
-                {cartItems.map((i) => (
-                  <div
-                    key={i.productId}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "10px 12px",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: 12,
-                      marginBottom: 8,
-                      background: "#f9fafb",
-                      gap: 10,
-                    }}
-                  >
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, wordBreak: "break-word" }}>
-                        {i.productName}
-                      </div>
-                      <div style={{ color: "#6b7280", fontSize: 13 }}>
-                        {i.quantity} × {formatMoney(i.sellingPrice)}
-                      </div>
-                    </div>
-
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <div style={{ fontWeight: 700 }}>
-                        {formatMoney(Number(i.sellingPrice) * Number(i.quantity))}
-                      </div>
-
-                      <button onClick={() => removeCartItem(i.productId)} style={removeBtn}><FiX size={16} /></button>
-                    </div>
-                  </div>
-                ))}
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginTop: 10,
-                    fontWeight: 700,
-                  }}
-                >
-                  <div>Total</div>
-                  <div>{formatMoney(cartTotal)}</div>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginTop: 8,
-                    color: "#6b7280",
-                  }}
-                >
-                  <div>Discount</div>
-                  <div>{formatMoney(Number(orderForm.discount || 0))}</div>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginTop: 10,
-                    fontWeight: 700,
-                  }}
-                >
-                  <div>Grand Total</div>
-                  <div>{formatMoney(Math.max(0, cartTotal - Number(orderForm.discount || 0)))}</div>
-                </div>
-              </div>
-            )}
-
-            {/* Footer */}
-            <div className="orders-modal-footer" style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-              <button className="orders-create-button" onClick={handleCreateOrder} style={createBtn}>
-                {loading ? "Saving..." : "Create Order"}
-              </button>
-            </div>
-
-            {error && (
-              <div style={{ marginTop: 10, color: "crimson", fontWeight: 700 }}>
-                {error}
-              </div>
-            )}
-          </div>
-        </div>
+        <AddOrderModal
+          customerForm={customerForm}
+          orderForm={orderForm}
+          itemForm={itemForm}
+          cartItems={cartItems}
+          cartTotal={cartTotal}
+          products={products}
+          loading={loading}
+          error={error}
+          onCustomerChange={handleCustomerChange}
+          onOrderChange={handleOrderChange}
+          onItemChange={handleItemChange}
+          onOrderTypeChange={(value) => setOrderForm((f) => ({ ...f, orderType: value }))}
+          onAddItem={addItemToCart}
+          onRemoveItem={removeCartItem}
+          onClose={closeAddModal}
+          onCreate={handleCreateOrder}
+        />
       )}
 
-      {/* EDIT STATUS MODAL */}
       {editingOrder && (
-        <div className="orders-modal-overlay" style={modalOverlay} onClick={closeEditModal}>
-          <div className="orders-modal-small" style={modalBoxSmall} onClick={(e) => e.stopPropagation()}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 12,
-              }}
-            >
-              <h3 style={{ ...modalTitle, margin: 0 }}>Edit Order Status</h3>
-
-              <button onClick={closeEditModal} style={xBtn}><FiX size={16} /></button>
-            </div>
-
-            <div style={{ marginBottom: 10, color: "#6b7280" }}>
-              Order: <b>{String(editingOrder.id).slice(0, 8).toUpperCase()}</b>
-            </div>
-
-            <select
-              value={editStatus}
-              onChange={(e) => setEditStatus(e.target.value)}
-              style={inputStyle}
-            >
-              {ORDER_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {niceStatus(s)}
-                </option>
-              ))}
-            </select>
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 10,
-                marginTop: 16,
-              }}
-            >
-              <button onClick={closeEditModal} style={cancelBtn}>
-                Cancel
-              </button>
-
-              <button onClick={handleUpdateStatus} style={saveBtn}>
-                {loading ? "Saving..." : "Update"}
-              </button>
-            </div>
-
-            {error && (
-              <div style={{ marginTop: 10, color: "crimson", fontWeight: 700 }}>
-                {error}
-              </div>
-            )}
-          </div>
-        </div>
+        <EditStatusModal
+          order={editingOrder}
+          statuses={ORDER_STATUSES}
+          status={editStatus}
+          loading={loading}
+          error={error}
+          onStatusChange={setEditStatus}
+          onClose={closeEditModal}
+          onSave={handleUpdateStatus}
+        />
       )}
 
       {cashPaymentOrder && (
-        <div className="orders-modal-overlay" style={modalOverlay} onClick={closeCashPaymentModal}>
-          <div className="orders-modal-small" style={modalBoxSmall} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <h3 style={{ ...modalTitle, margin: 0 }}>Record Cash Payment</h3>
-              <button onClick={closeCashPaymentModal} style={xBtn} disabled={recordingCashPayment}><FiX size={16} /></button>
-            </div>
-
-            <div style={{ marginBottom: 10, color: "#6b7280" }}>
-              Order: <b>{String(cashPaymentOrder.id).slice(0, 8).toUpperCase()}</b>
-            </div>
-            <div style={{ marginBottom: 14, color: "#374151" }}>
-              Customer: <b>{cashPaymentOrder.customerName || "-"}</b>
-              <br />
-              Order total: <b>{formatMoney(cashPaymentOrder.totalAmount)}</b>
-              <br />
-              Payment method: <b>Cash</b>
-            </div>
-
-            <label style={{ display: "block", marginBottom: 6, fontWeight: 700 }}>Amount received (KES)</label>
-            <input
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={cashPaymentAmount}
-              onChange={(e) => setCashPaymentAmount(e.target.value)}
-              style={inputStyle}
-              disabled={recordingCashPayment}
-            />
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
-              <button onClick={closeCashPaymentModal} style={cancelBtn} disabled={recordingCashPayment}>
-                Cancel
-              </button>
-              <button onClick={handleRecordCashPayment} style={cashPaymentBtn} disabled={recordingCashPayment}>
-                {recordingCashPayment ? "Recording..." : "Confirm Cash Payment"}
-              </button>
-            </div>
-
-            {cashPaymentError && (
-              <div style={{ marginTop: 10, color: "crimson", fontWeight: 700 }}>
-                {cashPaymentError}
-              </div>
-            )}
-          </div>
-        </div>
+        <CashPaymentModal
+          order={cashPaymentOrder}
+          amount={cashPaymentAmount}
+          error={cashPaymentError}
+          saving={recordingCashPayment}
+          onAmountChange={setCashPaymentAmount}
+          onClose={closeCashPaymentModal}
+          onConfirm={handleRecordCashPayment}
+        />
       )}
 
       {selectedOrder && (
-        <div className="orders-modal-overlay" style={modalOverlay} onClick={closeNotesModal}>
-          <div className="orders-modal-small" style={modalBoxSmall} onClick={(e) => e.stopPropagation()}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 12,
-              }}
-            >
-              <h3 style={{ ...modalTitle, margin: 0 }}>Delivery Notes</h3>
-              <button onClick={closeNotesModal} style={xBtn}><FiX size={16} /></button>
-            </div>
-
-            <div style={{ marginBottom: 10, color: "#6b7280" }}>
-              Order: <b>{String(selectedOrder.id).slice(0, 8).toUpperCase()}</b>
-            </div>
-
-            <textarea
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              placeholder="Enter delivery notes, customer comments, or pickup instructions"
-              style={{
-                width: "100%",
-                minHeight: 140,
-                borderRadius: 12,
-                border: "1px solid #e5e7eb",
-                padding: 12,
-                fontFamily: "inherit",
-                resize: "vertical",
-              }}
-            />
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 10,
-                marginTop: 16,
-              }}
-            >
-              <button onClick={closeNotesModal} style={cancelBtn}>
-                Cancel
-              </button>
-
-              <button onClick={handleUpdateNotes} style={saveBtn}>
-                {loading ? "Saving..." : "Save Notes"}
-              </button>
-            </div>
-
-            {noteError && (
-              <div style={{ marginTop: 10, color: "crimson", fontWeight: 700 }}>
-                {noteError}
-              </div>
-            )}
-          </div>
-        </div>
+        <OrderNotesModal
+          order={selectedOrder}
+          text={noteText}
+          error={noteError}
+          loading={loading}
+          onChange={setNoteText}
+          onClose={closeNotesModal}
+          onSave={handleUpdateNotes}
+        />
       )}
 
-      {receiptOrder && (
-        <div id="receipt-print-root" className="print-receipt" aria-hidden="true">
-          <div className="receipt-paper">
-            <div className="receipt-header">
-              <h1>URBAN TRENDS</h1>
-              <div className="receipt-title">Dispatch Receipt</div>
-            </div>
-
-            <div className="receipt-section">
-              <div className="receipt-row">
-                <strong>Order</strong>
-                <strong>{String(receiptOrder.id || "").slice(0, 8).toUpperCase()}</strong>
-              </div>
-              <div className="receipt-row">
-                <span>Date</span>
-                <span>{formatDateTime(receiptOrder.createdAt)}</span>
-              </div>
-              <div className="receipt-row">
-                <span>Status</span>
-                <span>{niceStatus(receiptOrder.orderStatus)}</span>
-              </div>
-              <div className="receipt-row">
-                <span>Served by</span>
-                <span>{receiptOrder.servedBy || servedBy}</span>
-              </div>
-            </div>
-
-            <div className="receipt-section">
-              <div className="receipt-row">
-                <span>Customer</span>
-                <strong>{receiptOrder.customerName || "-"}</strong>
-              </div>
-              <div className="receipt-row">
-                <span>Phone</span>
-                <strong>{receiptOrder.phoneNumber || "-"}</strong>
-              </div>
-              <div className="receipt-row">
-                <span>City</span>
-                <strong>{receiptOrder.deliveryCity || "-"}</strong>
-              </div>
-            </div>
-
-            <div className="receipt-section">
-              <div className="receipt-row">
-                <span>{getOrderProductLines(receiptOrder).length > 1 ? "Products" : "Product"}</span>
-                <strong>
-                  {getOrderProductLines(receiptOrder).map((productLine, productIndex) => (
-                    <div key={`${receiptOrder.id}-receipt-product-${productIndex}`}>{productLine}</div>
-                  ))}
-                </strong>
-              </div>
-              <div className="receipt-row receipt-total">
-                <span>Amount Due</span>
-                <span>{formatMoney(receiptOrder.totalAmount)}</span>
-              </div>
-            </div>
-
-            <div className="receipt-payment">
-              <div className="receipt-row">
-                <span>M-Pesa Paybill</span>
-                <strong>{MPESA_PAYBILL}</strong>
-              </div>
-              <div className="receipt-row">
-                <span>Account No</span>
-                <strong>{receiptOrder.accountNumber || "Use order number"}</strong>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {receiptOrder && <ReceiptModal order={receiptOrder} fallbackServedBy={servedBy} />}
 
       {printingReceipt && (
         <div style={{ position: "fixed", right: 16, bottom: 16, background: "#111827", color: "#fff", padding: "10px 14px", borderRadius: 12, fontWeight: 700, zIndex: 1001 }}>
@@ -1728,56 +927,3 @@ export default function Orders() {
     </div>
   );
 }
-
-const formatDateTime = (dateString) => {
-  if (!dateString) return "-";
-
-  const date = new Date(dateString);
-
-  return `${date.toLocaleDateString("en-CA")} ${date.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  })}`;
-};
-
-/* --------------------------
-   Styles (same theme)
--------------------------- */
-
-const addOrderBtn = primaryBtn;
-
-const editBtn = actionBtn;
-
-const cashPaymentBtn = {
-  ...actionBtn,
-  border: "1px solid transparent",
-  background: "var(--success)",
-  color: "#fff",
-};
-
-const addItemBtn = { ...primaryBtn, height: 42 };
-
-const createBtn = primaryBtn;
-
-const removeBtn = dangerActionBtn;
-
-const modalBox = { ...baseModalBox, width: 760 };
-
-const modalBoxSmall = baseModalBox;
-
-const xBtn = closeBtn;
-
-const saveBtn = primaryBtn;
-
-const sectionTitle = {
-  fontSize: 12,
-  fontWeight: 600,
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-  color: "var(--text-muted)",
-  marginBottom: 10,
-};
-
-const noteBtn = actionBtn;
-

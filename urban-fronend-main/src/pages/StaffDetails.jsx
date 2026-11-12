@@ -145,7 +145,7 @@ export default function StaffDetailsPage() {
 
         {/* PRODUCTS HANDLED */}
         {canManageAssignments && (
-          <ProductsHandledCard targetId={targetId} staffName={fullName} />
+          <ProductsHandledCard targetId={targetId} />
         )}
 
         {/* TODAY STATS ROW */}
@@ -153,7 +153,6 @@ export default function StaffDetailsPage() {
           <TodayStat
             label="Orders today"
             value={summary?.ordersToday ?? 0}
-            raw
           />
           <TodayStat
             label="Revenue today"
@@ -337,12 +336,11 @@ function normalizeAssignments(rawAssignments) {
   });
 }
 
-function ProductsHandledCard({ targetId, staffName }) {
+function ProductsHandledCard({ targetId }) {
   const [products, setProducts] = useState([]);
   const [assignments, setAssignments] = useState([]); // [{ productId, staffId, staffName }]
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [pendingIds, setPendingIds] = useState(new Set());
   const [selectedProductIds, setSelectedProductIds] = useState(new Set());
   const selectedProductIdsRef = useRef(new Set());
   const [hasChanges, setHasChanges] = useState(false);
@@ -568,7 +566,6 @@ function ProductsHandledCard({ targetId, staffName }) {
               const isSelected = selectedProductIds.has(normalizedProductId);
               const isAssignedToTarget = isSelected;
               const isAssignedToOther = Boolean(assignment && normalizeId(assignment.staffId) !== normalizeId(targetId) && !isSelected);
-              const isPending = pendingIds.has(p.id);
 
               return (
                 <label
@@ -577,7 +574,7 @@ function ProductsHandledCard({ targetId, staffName }) {
                     isAssignedToTarget
                       ? "border-brand-200 bg-brand-50"
                       : "border-slate-100 hover:bg-slate-50"
-                  } ${isPending ? "opacity-50 pointer-events-none" : ""}`}
+                  }`}
                 >
                   <input
                     type="checkbox"
@@ -630,7 +627,7 @@ function ProductsHandledCard({ targetId, staffName }) {
 }
 
 // ── Today stat card ──────────────────────────────────────────
-function TodayStat({ label, value, money, raw, color }) {
+function TodayStat({ label, value, money, color }) {
   const colors = {
     blue:   "text-brand-600",
     green:  "text-green-600",

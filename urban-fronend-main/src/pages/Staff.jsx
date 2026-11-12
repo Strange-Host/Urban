@@ -172,7 +172,7 @@ export default function Staff() {
       await api.put(`/api/v1/admin/permissions/${permStaff.id}`, grantedPerms);
       setPermSuccess("Permissions saved successfully!");
       setTimeout(() => setPermSuccess(""), 3000);
-    } catch (e) {
+    } catch {
       alert("Failed to save permissions.");
     } finally {
       setPermSaving(false);
@@ -214,7 +214,7 @@ export default function Staff() {
       setPage(0);
       invalidateStaff();
       await loadStaff(0, search.trim());
-    } catch (e) {
+    } catch {
       alert("Failed to add staff.");
     } finally {
       setLoading(false);
@@ -228,7 +228,7 @@ export default function Staff() {
       await api.delete(`/api/v1/auth/user/${id}`);
       invalidateStaff();
       await loadStaff(page, search.trim());
-    } catch (e) {
+    } catch {
       alert("Delete failed.");
     } finally {
       setLoading(false);

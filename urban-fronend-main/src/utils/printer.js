@@ -217,7 +217,7 @@ export async function printReceiptToUSB(order, mpesaPaybill) {
   setTimeout(() => {
     try {
       printWindow.close();
-    } catch (e) {
+    } catch {
       // no-op
     }
   }, 1500);
