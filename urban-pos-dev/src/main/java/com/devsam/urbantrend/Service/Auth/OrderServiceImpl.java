@@ -107,7 +107,7 @@ public class OrderServiceImpl implements OrderService {
                 .discount(discount)
                 .deliveryFee(deliveryFee)
                 .totalAmount(finalTotal)
-                .balance(totalAfterDiscount)
+                .balance(finalTotal)
                 .accountNumber(fullAccount)
                 .build();
 
@@ -130,6 +130,12 @@ public class OrderServiceImpl implements OrderService {
                     .build();
 
             orderItemRepository.save(item);
+        }
+
+        // Counter sales leave the shop immediately, so their stock has to move
+        // now instead of waiting for a dispatch status transition.
+        if (status.isFullyPaid()) {
+            deductInventoryForOrder(savedOrder.getId());
         }
 
         return savedOrder;
@@ -189,7 +195,7 @@ public class OrderServiceImpl implements OrderService {
                     .quantity(item.getQuantity())
                     .build();
 
-            inventoryService.increase(req);
+            inventoryService.increaseIfTracked(req);
         }
     }
 
@@ -203,7 +209,7 @@ public class OrderServiceImpl implements OrderService {
                     .quantity(item.getQuantity())
                     .build();
 
-            inventoryService.reduce(req);
+            inventoryService.reduceIfTracked(req);
         }
     }
 
@@ -339,7 +345,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public StaffOrderSummary getStaffSummary(UUID staffId) {
 
-        List<Order> orders = orderRepository.findByCreatedBy(staffId);
+        List<Order> orders = orderRepository.findByCreatedByAndDeletedAtIsNull(staffId);
 
         LocalDate today = LocalDate.now();
 
@@ -348,21 +354,21 @@ public class OrderServiceImpl implements OrderService {
                         o.getCreatedAt().toLocalDate().equals(today))
                 .toList();
 
-        BigDecimal revenueToday = todaysOrders.stream()
-                .map(o -> o.getTotalAmount() != null ? o.getTotalAmount() : BigDecimal.ZERO)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        List<Order> revenueOrders = orders.stream()
+                .filter(o -> o.getOrderStatus() != null && o.getOrderStatus().isRevenueRecognized())
+                .toList();
 
-        BigDecimal cogsToday = todaysOrders.stream()
-                .map(o -> o.getItems() == null ? BigDecimal.ZERO :
-                        o.getItems().stream()
-                                .map(i -> i.getCostPrice().multiply(i.getQuantity()))
-                                .reduce(BigDecimal.ZERO, BigDecimal::add))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        List<Order> todaysRevenueOrders = todaysOrders.stream()
+                .filter(o -> o.getOrderStatus() != null && o.getOrderStatus().isRevenueRecognized())
+                .toList();
+
+        BigDecimal revenueToday = sumRevenue(todaysRevenueOrders);
+        BigDecimal cogsToday = sumCogs(todaysRevenueOrders);
 
         BigDecimal profitToday = revenueToday.subtract(cogsToday);
 
         // Commission is driven by the real weekly-KPI rule (50/30 bob per
-        // DELIVERED_PAID order depending on that week's KPI), not a flat
+        // fully-paid order depending on that week's KPI), not a flat
         // percentage of revenue. Reuse PayrollService so there's one source
         // of truth instead of two disagreeing commission numbers.
         BigDecimal commissionToday = payrollService
@@ -371,16 +377,8 @@ public class OrderServiceImpl implements OrderService {
 
         int totalOrders = orders.size();
 
-        BigDecimal totalRevenue = orders.stream()
-                .map(o -> o.getTotalAmount() != null ? o.getTotalAmount() : BigDecimal.ZERO)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal totalCogs = orders.stream()
-                .map(o -> o.getItems() == null ? BigDecimal.ZERO :
-                        o.getItems().stream()
-                                .map(i -> i.getCostPrice().multiply(i.getQuantity()))
-                                .reduce(BigDecimal.ZERO, BigDecimal::add))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalRevenue = sumRevenue(revenueOrders);
+        BigDecimal totalCogs = sumCogs(revenueOrders);
 
         BigDecimal totalProfit = totalRevenue.subtract(totalCogs);
 
@@ -393,9 +391,9 @@ public class OrderServiceImpl implements OrderService {
                 .getStaffPayroll(staffId, earliestOrderDate, today)
                 .getCommission();
 
-        BigDecimal averageOrderValue = totalOrders > 0
-                ? totalRevenue.divide(BigDecimal.valueOf(totalOrders), 2, RoundingMode.HALF_UP)
-                : BigDecimal.ZERO;
+        BigDecimal averageOrderValue = revenueOrders.isEmpty()
+                ? BigDecimal.ZERO
+                : totalRevenue.divide(BigDecimal.valueOf(revenueOrders.size()), 2, RoundingMode.HALF_UP);
 
         return StaffOrderSummary.builder()
                 .ordersToday(todaysOrders.size())
@@ -408,6 +406,21 @@ public class OrderServiceImpl implements OrderService {
                 .totalCommission(totalCommission)
                 .averageOrderValue(averageOrderValue)
                 .build();
+    }
+
+    private BigDecimal sumRevenue(List<Order> orders) {
+        return orders.stream()
+                .map(o -> o.getTotalAmount() != null ? o.getTotalAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal sumCogs(List<Order> orders) {
+        return orders.stream()
+                .map(o -> o.getItems() == null ? BigDecimal.ZERO :
+                        o.getItems().stream()
+                                .map(i -> i.getCostPrice().multiply(i.getQuantity()))
+                                .reduce(BigDecimal.ZERO, BigDecimal::add))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     public Order updateNotes(UUID id, UpdateOrderNotesRequest request, User user) {

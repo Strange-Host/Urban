@@ -16,7 +16,9 @@ public interface InventoryService {
 
     Inventory reduce(InventoryRequest request);
 
-    Inventory increase(InventoryRequest request);
+    void reduceIfTracked(InventoryRequest request);
+
+    void increaseIfTracked(InventoryRequest request);
 
     List<Inventory> getLowStock();
 }

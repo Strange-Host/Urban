@@ -25,7 +25,7 @@ public class PayrollServiceImpl implements PayrollService {
     private static final BigDecimal DAILY_PAY = BigDecimal.valueOf(300);
 
     // Weekly KPI = (leads assigned that week that converted AND whose order
-    // reached DELIVERED_PAID) / (leads assigned that week)
+    // was fully paid) / (leads assigned that week)
     private static final double KPI_THRESHOLD_PERCENT = 80.0;
     private static final BigDecimal COMMISSION_HIGH_KPI = BigDecimal.valueOf(50);
     private static final BigDecimal COMMISSION_LOW_KPI = BigDecimal.valueOf(30);

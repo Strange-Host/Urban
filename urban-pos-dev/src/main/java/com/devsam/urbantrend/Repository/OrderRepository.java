@@ -58,13 +58,17 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     """)
     List<Order> findAllWithItemsByIds(List<UUID> ids);
 
-    List<Order> findAllByCreatedAtBetween(LocalDateTime  from, LocalDateTime to);
+    List<Order> findAllByCreatedAtBetweenAndDeletedAtIsNull(LocalDateTime from, LocalDateTime to);
 
     @Query("""
         SELECT COUNT(o)
         FROM Order o
         WHERE o.createdBy = :staffId
-          AND o.orderStatus = com.devsam.urbantrend.Enum.OrderStatus.DISPATCHED_PAID
+          AND o.orderStatus IN (
+              com.devsam.urbantrend.Enum.OrderStatus.DISPATCHED_PAID,
+              com.devsam.urbantrend.Enum.OrderStatus.DELIVERED_PAID,
+              com.devsam.urbantrend.Enum.OrderStatus.COMPLETED
+          )
           AND o.createdAt BETWEEN :from AND :to
     """)
     long countPaidOrders(UUID staffId, LocalDateTime from, LocalDateTime to);
@@ -74,7 +78,11 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
         SELECT COUNT(DISTINCT FUNCTION('DATE', o.createdAt))
         FROM Order o
         WHERE o.createdBy = :staffId
-          AND o.orderStatus = com.devsam.urbantrend.Enum.OrderStatus.DISPATCHED_PAID
+          AND o.orderStatus IN (
+              com.devsam.urbantrend.Enum.OrderStatus.DISPATCHED_PAID,
+              com.devsam.urbantrend.Enum.OrderStatus.DELIVERED_PAID,
+              com.devsam.urbantrend.Enum.OrderStatus.COMPLETED
+          )
           AND o.createdAt BETWEEN :from AND :to
     """)
     long countPaidDaysWorked(UUID staffId, LocalDateTime from, LocalDateTime to);
@@ -93,7 +101,14 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     JOIN orders o ON oi.order_id = o.id
     JOIN products p ON oi.product_id = p.id
     WHERE o.created_at BETWEEN :from AND :to
-      AND o.order_status = 'DELIVERED_PAID'
+      AND o.order_status IN (
+          'DISPATCHED_PAID',
+          'DISPATCHED_PARTIAL',
+          'DISPATCHED_UNPAID',
+          'DELIVERED_PAID',
+          'DELIVERED_UNPAID',
+          'COMPLETED'
+      )
       AND o.deleted_at IS NULL
     GROUP BY p.id, p.name
     ORDER BY totalQuantity DESC
@@ -105,7 +120,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             @Param("limit") int limit
     );
 
-    List<Order> findByCreatedBy(UUID staffId);
+    List<Order> findByCreatedByAndDeletedAtIsNull(UUID staffId);
 
 
     @Query("""

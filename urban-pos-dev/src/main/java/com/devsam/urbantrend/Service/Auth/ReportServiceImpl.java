@@ -3,7 +3,6 @@ package com.devsam.urbantrend.Service.Auth;
 import com.devsam.urbantrend.Dtos.ProfitReportResponse;
 import com.devsam.urbantrend.Entity.Order;
 import com.devsam.urbantrend.Entity.OrderItem;
-import com.devsam.urbantrend.Enum.OrderStatus;
 import com.devsam.urbantrend.Repository.ExpenseRepository;
 import com.devsam.urbantrend.Repository.OrderItemRepository;
 import com.devsam.urbantrend.Repository.OrderRepository;
@@ -27,14 +26,14 @@ public class ReportServiceImpl implements ReportService {
     @Override
     public ProfitReportResponse getProfitReport(LocalDateTime from, LocalDateTime to) {
 
-        List<Order> orders = orderRepository.findAllByCreatedAtBetween(from, to);
+        List<Order> orders = orderRepository.findAllByCreatedAtBetweenAndDeletedAtIsNull(from, to);
 
         BigDecimal revenue = BigDecimal.ZERO;
         BigDecimal cogs = BigDecimal.ZERO;
 
         for (Order order : orders) {
 
-            if (!isDispatched(order.getOrderStatus())) continue;
+            if (order.getOrderStatus() == null || !order.getOrderStatus().isRevenueRecognized()) continue;
 
             List<OrderItem> items = orderItemRepository.findByOrder_Id(order.getId());
 
@@ -50,8 +49,6 @@ public class ReportServiceImpl implements ReportService {
 
         BigDecimal netProfit = grossProfit.subtract(expenses);
 
-        System.out.println("EXPENSES = " + expenses);
-
         return ProfitReportResponse.builder()
                 .revenue(revenue)
                 .cogs(cogs)
@@ -59,11 +56,5 @@ public class ReportServiceImpl implements ReportService {
                 .expenses(expenses)
                 .netProfit(netProfit)
                 .build();
-    }
-
-    private boolean isDispatched(OrderStatus status) {
-        return status == OrderStatus.DISPATCHED_PAID
-                || status == OrderStatus.DISPATCHED_UNPAID
-                || status == OrderStatus.DISPATCHED_PARTIAL;
     }
 }

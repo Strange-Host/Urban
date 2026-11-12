@@ -91,12 +91,35 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
-    public Inventory increase(InventoryRequest request) {
-        Inventory inventory = inventoryRepository.findByProductId(request.getProductId())
-                .orElseThrow(() -> new ResourceNotFoundException("Inventory not found"));
+    public void reduceIfTracked(InventoryRequest request) {
 
-        inventory.setQuantity(inventory.getQuantity().add(request.getQuantity()));
-        return inventoryRepository.save(inventory);
+        if (request.getQuantity() == null || request.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Reduce quantity must be greater than zero");
+        }
+
+        // Products without an inventory row are not stock-tracked, so there is
+        // nothing to deduct. Tracked products still enforce available stock.
+        inventoryRepository.findByProductId(request.getProductId())
+                .ifPresent(inventory -> {
+                    if (inventory.getQuantity().compareTo(request.getQuantity()) < 0) {
+                        throw new IllegalStateException("Insufficient stock");
+                    }
+
+                    inventory.setQuantity(
+                            inventory.getQuantity().subtract(request.getQuantity())
+                    );
+                    inventoryRepository.save(inventory);
+                });
+    }
+
+    @Override
+    public void increaseIfTracked(InventoryRequest request) {
+
+        inventoryRepository.findByProductId(request.getProductId())
+                .ifPresent(inventory -> {
+                    inventory.setQuantity(inventory.getQuantity().add(request.getQuantity()));
+                    inventoryRepository.save(inventory);
+                });
     }
 
 

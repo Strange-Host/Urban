@@ -33,6 +33,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final CustomerRepository customerRepository;
+    private final OrderService orderService;
     private final SmsProvider smsProvider;
 
     @Override
@@ -58,6 +59,8 @@ public class PaymentServiceImpl implements PaymentService {
         if (request.getOrderId() != null) {
             order = orderRepository.findById(request.getOrderId())
                     .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+
+            ensureOrderAcceptsPayment(order);
         }
 
         Payment payment = Payment.builder()
@@ -77,7 +80,7 @@ public class PaymentServiceImpl implements PaymentService {
         Payment saved = paymentRepository.save(payment);
 
         if (order != null) {
-            applyPaymentToOrder(order, saved);
+            applyPaymentToOrder(order, saved, user);
         }
 
         return toDto(saved);
@@ -134,6 +137,21 @@ public class PaymentServiceImpl implements PaymentService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
+        if (payment.isMatched() || payment.getOrder() != null) {
+            throw new IllegalArgumentException("Payment is already matched to an order");
+        }
+
+        if (payment.isSuspicious()) {
+            throw new IllegalArgumentException("Suspicious payments cannot be matched");
+        }
+
+        if (payment.getStatus() != PaymentStatus.SUCCESS
+                && payment.getStatus() != PaymentStatus.PAID) {
+            throw new IllegalArgumentException("Only successful payments can be matched");
+        }
+
+        ensureOrderAcceptsPayment(order);
+
         payment.setOrder(order);
         payment.setMatched(true);
         payment.setReconciledBy(user.getId());
@@ -141,22 +159,49 @@ public class PaymentServiceImpl implements PaymentService {
 
         Payment saved = paymentRepository.save(payment);
 
-        applyPaymentToOrder(order, saved);
+        applyPaymentToOrder(order, saved, user);
 
         return toDto(saved);
     }
 
-    private void applyPaymentToOrder(Order order, Payment payment) {
+    private void ensureOrderAcceptsPayment(Order order) {
+        OrderStatus status = order.getOrderStatus();
 
+        if (status == OrderStatus.CANCELLED
+                || (status != null && status.name().startsWith("RETURN"))) {
+            throw new IllegalArgumentException("Cannot apply a payment to a cancelled or returned order");
+        }
+    }
+
+    private void applyPaymentToOrder(Order order, Payment payment, User user) {
+
+        BigDecimal total = order.getTotalAmount();
         BigDecimal paid = order.getPaidAmount() != null ? order.getPaidAmount() : BigDecimal.ZERO;
 
+        boolean wasFullyPaid = paid.compareTo(total) >= 0;
+
         BigDecimal newPaid = paid.add(payment.getAmount());
+        BigDecimal newBalance = total.subtract(newPaid).max(BigDecimal.ZERO);
+
         order.setPaidAmount(newPaid);
+        order.setBalance(newBalance);
+        orderRepository.save(order);
 
-        BigDecimal newBalance = order.getTotalAmount().subtract(newPaid);
+        OrderStatus current = order.getOrderStatus();
+        OrderStatus target;
 
-        if (newBalance.compareTo(BigDecimal.ZERO) <= 0) {
-            order.setOrderStatus(OrderStatus.DISPATCHED_PAID);
+        if (current != null && current.isDeliveredOrClosed()) {
+            target = current;
+        } else {
+            target = newBalance.compareTo(BigDecimal.ZERO) <= 0
+                    ? OrderStatus.DISPATCHED_PAID
+                    : OrderStatus.DISPATCHED_PARTIAL;
+        }
+
+        Order updated = orderService.updateStatus(order.getId(), target, user);
+
+        if (!wasFullyPaid && updated.getBalance() != null
+                && updated.getBalance().compareTo(BigDecimal.ZERO) <= 0) {
 
             Customer customer = customerRepository.findById(order.getCustomerId())
                     .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
@@ -167,11 +212,7 @@ public class PaymentServiceImpl implements PaymentService {
                             ", payment of KES " + payment.getAmount() +
                             " received. Thank you for shopping with us."
             );
-        } else {
-            order.setOrderStatus(OrderStatus.DISPATCHED_UNPAID);
         }
-
-        orderRepository.save(order);
     }
 
     private PaymentResponse toDto(Payment payment) {

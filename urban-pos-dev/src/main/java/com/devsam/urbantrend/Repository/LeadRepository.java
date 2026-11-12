@@ -65,7 +65,11 @@ public interface LeadRepository extends JpaRepository<Lead, Long> {
           AND l.status = 'CONVERTED'
           AND l.convertedOrderId IN (
               SELECT o.id FROM com.devsam.urbantrend.Entity.Order o
-              WHERE o.orderStatus = com.devsam.urbantrend.Enum.OrderStatus.DELIVERED_PAID
+              WHERE o.orderStatus IN (
+                  com.devsam.urbantrend.Enum.OrderStatus.DISPATCHED_PAID,
+                  com.devsam.urbantrend.Enum.OrderStatus.DELIVERED_PAID,
+                  com.devsam.urbantrend.Enum.OrderStatus.COMPLETED
+              )
           )
     """)
     long countConvertedAndPaidLeads(

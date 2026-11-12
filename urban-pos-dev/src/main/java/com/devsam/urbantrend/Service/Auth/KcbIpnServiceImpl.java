@@ -27,6 +27,7 @@ public class KcbIpnServiceImpl implements KcbIpnService {
 
     private final OrderRepository orderRepository;
     private final PaymentRepository paymentRepository;
+    private final OrderService orderService;
     private final ApplicationEventPublisher applicationEventPublisher;
 
     @Override
@@ -97,6 +98,9 @@ public class KcbIpnServiceImpl implements KcbIpnService {
             log.warn("⚠ Unsupported KCB currency {}, payment stored as unmatched", currency);
         } else if (order == null) {
             log.warn("⚠ No order found for account number={}", accountNumber);
+        } else if (order.getOrderStatus() == OrderStatus.CANCELLED) {
+            log.warn("⚠ Order {} is cancelled, payment stored as unmatched", order.getId());
+            order = null;
         } else {
             log.info("✅ Order found: id={}", order.getId());
         }
@@ -137,30 +141,36 @@ public class KcbIpnServiceImpl implements KcbIpnService {
                 ? BigDecimal.ZERO
                 : order.getPaidAmount();
 
-        BigDecimal newPaid = oldPaid.add(amount);
-
-        order.setPaidAmount(newPaid);
-
         BigDecimal total = order.getTotalAmount();
 
-        if (newPaid.compareTo(total) >= 0) {
+        boolean wasFullyPaid = oldPaid.compareTo(total) >= 0;
 
-            order.setOrderStatus(OrderStatus.DISPATCHED_PAID);
+        BigDecimal newPaid = oldPaid.add(amount);
+        BigDecimal newBalance = total.subtract(newPaid).max(BigDecimal.ZERO);
 
-            log.info("🟢 Order fully paid. Status updated to DISPATCHED_PAID");
+        order.setPaidAmount(newPaid);
+        order.setBalance(newBalance);
+        orderRepository.save(order);
 
+        OrderStatus current = order.getOrderStatus();
+
+        OrderStatus target = current != null && current.isDeliveredOrClosed()
+                ? current
+                : newBalance.compareTo(BigDecimal.ZERO) <= 0
+                    ? OrderStatus.DISPATCHED_PAID
+                    : OrderStatus.DISPATCHED_PARTIAL;
+
+        // Goes through OrderService so a first dispatch also deducts stock.
+        orderService.updateStatus(order.getId(), target, null);
+
+        if (!wasFullyPaid && newBalance.compareTo(BigDecimal.ZERO) <= 0) {
+            log.info("🟢 Order fully paid. Status updated to {}", target);
             applicationEventPublisher.publishEvent(
                     new OrderPaidEvent(order.getId())
             );
-
-        } else {
-
-            order.setOrderStatus(OrderStatus.DISPATCHED_PARTIAL);
-
-            log.info("🟡 Partial payment received. Status updated to DISPATCHED_PARTIAL");
+        } else if (newBalance.compareTo(BigDecimal.ZERO) > 0) {
+            log.info("🟡 Partial payment received. Status updated to {}", target);
         }
-
-        orderRepository.save(order);
 
         log.info("🏁 KCB IPN processing completed for transactionRef={}", transactionRef);
     }
