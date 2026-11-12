@@ -38,8 +38,11 @@ public class CategoryController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('CAN_VIEW_CATEGORIES')")
-    public Page<Category> getAllCategories(Pageable pageable) {
-        return categoryService.getAllCategories(pageable);
+    public Page<Category> getAllCategories(
+            @RequestParam(required = false) String query,
+            Pageable pageable
+    ) {
+        return categoryService.getAllCategories(pageable, query);
     }
 
     @GetMapping("/{id}")

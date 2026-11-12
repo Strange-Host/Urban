@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,11 +26,25 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     Page<Product> findAllByDeletedAtIsNullAndAssignedStaff(User assignedStaff, Pageable pageable);
 
-    Page<Product> findByNameIgnoreCaseContainingAndDeletedAtIsNull(String name, Pageable pageable);
+    @Query("""
+        SELECT p FROM Product p
+        WHERE p.deletedAt IS NULL
+          AND (LOWER(p.name) LIKE :pattern OR LOWER(p.sku) LIKE :pattern)
+    """)
+    Page<Product> searchByPattern(
+            @Param("pattern") String pattern,
+            Pageable pageable
+    );
 
-    Page<Product> findByNameIgnoreCaseContainingAndDeletedAtIsNullAndAssignedStaff(
-            String name,
-            User assignedStaff,
+    @Query("""
+        SELECT p FROM Product p
+        WHERE p.deletedAt IS NULL
+          AND p.assignedStaff = :staff
+          AND (LOWER(p.name) LIKE :pattern OR LOWER(p.sku) LIKE :pattern)
+    """)
+    Page<Product> searchByPatternForStaff(
+            @Param("pattern") String pattern,
+            @Param("staff") User staff,
             Pageable pageable
     );
 

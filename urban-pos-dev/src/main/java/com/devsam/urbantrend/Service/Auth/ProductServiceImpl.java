@@ -72,18 +72,17 @@ public class ProductServiceImpl implements ProductService {
     public Page<?> getAll(String query, Pageable pageable, User user) {
 
         boolean hasQuery = query != null && !query.trim().isEmpty();
-        String trimmedQuery = hasQuery ? query.trim() : null;
+        String pattern = hasQuery ? "%" + query.trim().toLowerCase() + "%" : "%";
 
         Page<Product> products;
 
         if (user.getRole() == UserRole.STAFF) {
             products = hasQuery
-                    ? productRepository.findByNameIgnoreCaseContainingAndDeletedAtIsNullAndAssignedStaff(
-                            trimmedQuery, user, pageable)
+                    ? productRepository.searchByPatternForStaff(pattern, user, pageable)
                     : productRepository.findAllByDeletedAtIsNullAndAssignedStaff(user, pageable);
         } else {
             products = hasQuery
-                    ? productRepository.findByNameIgnoreCaseContainingAndDeletedAtIsNull(trimmedQuery, pageable)
+                    ? productRepository.searchByPattern(pattern, pageable)
                     : productRepository.findAllByDeletedAtIsNull(pageable);
         }
 
@@ -98,12 +97,11 @@ public class ProductServiceImpl implements ProductService {
             throw new IllegalArgumentException("Search query is required");
         }
 
-        String trimmedQuery = query.trim();
+        String pattern = "%" + query.trim().toLowerCase() + "%";
 
         Page<Product> products = (user.getRole() == UserRole.STAFF)
-                ? productRepository.findByNameIgnoreCaseContainingAndDeletedAtIsNullAndAssignedStaff(
-                        trimmedQuery, user, pageable)
-                : productRepository.findByNameIgnoreCaseContainingAndDeletedAtIsNull(trimmedQuery, pageable);
+                ? productRepository.searchByPatternForStaff(pattern, user, pageable)
+                : productRepository.searchByPattern(pattern, pageable);
 
         return products.map(product -> toResponse(product, user));
     }

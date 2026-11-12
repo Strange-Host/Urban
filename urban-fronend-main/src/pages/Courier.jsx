@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { api } from "../api/api";
 import { FiPlus, FiTruck, FiPackage, FiEdit2, FiSlash, FiChevronLeft, FiChevronRight, FiX } from "react-icons/fi";
 import { PageHeader, SearchInput, EmptyState, LoadingBlock } from "../components/ui";
@@ -47,38 +47,43 @@ export default function Couriers() {
   });
 
   useEffect(() => {
-    loadCouriers();
-    // eslint-disable-next-line
-  }, [page, showInactive]);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      loadCouriers(page, !showInactive, search.trim(), controller.signal);
+    }, search.trim() ? 300 : 0);
 
-  async function loadCouriers() {
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+    // eslint-disable-next-line
+  }, [page, showInactive, search]);
+
+  async function loadCouriers(requestPage = page, activeOnly = !showInactive, query = "", signal) {
     try {
       setLoading(true);
       setError("");
 
       const res = await api.get("/api/v1/couriers", {
-        params: { page, size, activeOnly: !showInactive },
+        params: {
+          page: requestPage,
+          size,
+          activeOnly,
+          query: query || undefined,
+        },
+        signal,
       });
 
+      if (signal?.aborted) return;
       setPageData(res.data);
       setCouriers(res.data.content || []);
     } catch (e) {
+      if (signal?.aborted || e.code === "ERR_CANCELED") return;
       setError("Failed to load couriers.");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }
-
-  const filtered = useMemo(() => {
-    return couriers.filter((c) => {
-      const q = search.toLowerCase();
-      return (
-        (c.name || "").toLowerCase().includes(q) ||
-        (c.phoneNumber || "").toLowerCase().includes(q) ||
-        (c.vehicleInfo || "").toLowerCase().includes(q)
-      );
-    });
-  }, [couriers, search]);
 
   function openAddModal() {
     setForm({ name: "", phoneNumber: "", vehicleInfo: "", notes: "" });
@@ -108,7 +113,7 @@ export default function Couriers() {
       await api.post("/api/v1/couriers", form);
       closeAddModal();
       setPage(0);
-      await loadCouriers();
+      await loadCouriers(0, !showInactive, search.trim());
     } catch (e) {
       alert(e.response?.data?.message || "Failed to add courier.");
     } finally {
@@ -146,7 +151,7 @@ export default function Couriers() {
       setLoading(true);
       await api.put(`/api/v1/couriers/${editingCourier.id}`, editingCourier);
       closeEditModal();
-      await loadCouriers();
+      await loadCouriers(page, !showInactive, search.trim());
     } catch (e) {
       alert(e.response?.data?.message || "Failed to update courier.");
     } finally {
@@ -160,7 +165,7 @@ export default function Couriers() {
     try {
       setLoading(true);
       await api.delete(`/api/v1/couriers/${id}`);
-      await loadCouriers();
+      await loadCouriers(page, !showInactive, search.trim());
     } catch {
       alert("Failed to deactivate courier.");
     } finally {
@@ -266,7 +271,10 @@ export default function Couriers() {
         {/* Search */}
         <SearchInput
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setPage(0);
+            setSearch(e.target.value);
+          }}
           placeholder="Search couriers..."
           className="search-box w-full sm:w-80"
         />
@@ -319,13 +327,13 @@ export default function Couriers() {
           <div>Actions</div>
         </div>
 
-        {loading && filtered.length === 0 && <LoadingBlock label="Loading couriers..." />}
-        {!loading && filtered.length === 0 && (
+        {loading && couriers.length === 0 && <LoadingBlock label="Loading couriers..." />}
+        {!loading && couriers.length === 0 && (
           <EmptyState icon={FiTruck} title="No couriers found" message="Try adjusting your search or filters." />
         )}
 
         {/* Rows */}
-        {filtered.map((c, idx) => (
+        {couriers.map((c, idx) => (
           <React.Fragment key={c.id}>
             {/* Desktop row */}
             <div

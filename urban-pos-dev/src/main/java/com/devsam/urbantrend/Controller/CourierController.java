@@ -35,9 +35,10 @@ public class CourierController {
     @PreAuthorize("hasAuthority('CAN_VIEW_COURIERS')")
     public ResponseEntity<Page<CourierResponse>> getAllCouriers(
             @RequestParam(defaultValue = "false") boolean activeOnly,
+            @RequestParam(required = false) String query,
             Pageable pageable
     ) {
-        return ResponseEntity.ok(courierService.getAll(pageable, activeOnly));
+        return ResponseEntity.ok(courierService.getAll(pageable, activeOnly, query));
     }
 
     @GetMapping("/active")

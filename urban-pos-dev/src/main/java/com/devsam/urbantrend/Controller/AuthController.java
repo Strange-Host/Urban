@@ -50,11 +50,15 @@ public class AuthController {
 
     @GetMapping("/staffs")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
-    public Page<User> findAllUsers (Pageable pageable, @AuthenticationPrincipal UserDetails userDetails){
+    public Page<User> findAllUsers (
+            @RequestParam(required = false) String query,
+            Pageable pageable,
+            @AuthenticationPrincipal UserDetails userDetails
+    ){
         String email = userDetails.getUsername();
         userRepository.findByEmailAndDeletedAtIsNull(email)
                 .orElseThrow(()-> new RuntimeException("User not found"));
-        return authService.getAllUsers(pageable);
+        return authService.getAllUsers(pageable, query);
     }
 
     @GetMapping("/user/{id}")

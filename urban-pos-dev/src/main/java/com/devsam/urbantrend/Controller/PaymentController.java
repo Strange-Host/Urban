@@ -3,6 +3,7 @@ package com.devsam.urbantrend.Controller;
 import com.devsam.urbantrend.Dtos.PaymentRequest;
 import com.devsam.urbantrend.Dtos.PaymentResponse;
 import com.devsam.urbantrend.Entity.User;
+import com.devsam.urbantrend.Enum.PaymentMethod;
 import com.devsam.urbantrend.Repository.UserRepository;
 import com.devsam.urbantrend.Service.Auth.PaymentService;
 import jakarta.validation.Valid;
@@ -37,8 +38,12 @@ public class PaymentController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('CAN_VIEW_PAYMENTS')")
-    public Page<PaymentResponse> getAllPayments(Pageable pageable) {
-        return paymentService.getAllPayments(pageable);
+    public Page<PaymentResponse> getAllPayments(
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) PaymentMethod method,
+            Pageable pageable
+    ) {
+        return paymentService.getAllPayments(pageable, query, method);
     }
 
     @GetMapping("/order/{orderId}")

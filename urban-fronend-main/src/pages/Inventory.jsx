@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FiPlus, FiMinus, FiArchive, FiPrinter, FiRefreshCw } from "react-icons/fi";
 import { PageHeader, SearchInput, EmptyState, LoadingBlock } from "../components/ui";
 import {
@@ -55,28 +55,46 @@ export default function Inventory() {
   const tabs = ["All Inventory", "Low Stock"];
 
   useEffect(() => {
-    loadProducts();
+    loadInventory();
     loadLowStock();
   }, []);
 
-  async function loadProducts() {
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      loadProducts(search.trim(), controller.signal);
+    }, search.trim() ? 300 : 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+    // eslint-disable-next-line
+  }, [search]);
+
+  async function loadProducts(query = "", signal) {
     try {
       setLoading(true);
       setError("");
 
       const res = await api.get("/api/v1/products", {
-        params: { page: 0, size: 200, sort: "createdAt,desc" },
+        params: {
+          page: 0,
+          size: 200,
+          sort: "createdAt,desc",
+          ...(query ? { query } : {}),
+        },
+        signal,
       });
 
-      const list = res.data.content || [];
-      setProducts(list);
-
-      await loadInventory();
+      if (signal?.aborted) return;
+      setProducts(res.data.content || []);
     } catch (e) {
+      if (signal?.aborted || e.code === "ERR_CANCELED") return;
       console.log(e);
       setError("Failed to load products/inventory.");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }
 
@@ -121,16 +139,6 @@ export default function Inventory() {
       console.log(e);
     }
   }
-
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const q = search.toLowerCase();
-      return (
-        (p.name || "").toLowerCase().includes(q) ||
-        (p.sku || "").toLowerCase().includes(q)
-      );
-    });
-  }, [products, search]);
 
   function getStock(productId) {
     const inv = inventoryMap[productId];
@@ -186,7 +194,7 @@ export default function Inventory() {
       });
 
       closeRestockModal();
-      await loadProducts();
+      await loadProducts(search.trim());
       await loadLowStock();
     } catch (e) {
       console.log(e);
@@ -212,7 +220,7 @@ export default function Inventory() {
       });
 
       closeReduceModal();
-      await loadProducts();
+      await loadProducts(search.trim());
       await loadLowStock();
     } catch (e) {
       console.log(e);
@@ -232,7 +240,7 @@ export default function Inventory() {
     return { bg: "#dcfce7", color: "#166534" };
   }
 
-  const tableData = activeTab === "Low Stock" ? lowStock : filteredProducts;
+  const tableData = activeTab === "Low Stock" ? lowStock : products;
 
   return (
     <div>

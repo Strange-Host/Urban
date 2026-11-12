@@ -53,10 +53,20 @@ public class CourierServiceImpl implements CourierService {
     }
 
     @Override
-    public Page<CourierResponse> getAll(Pageable pageable, boolean activeOnly) {
-        Page<Courier> page = activeOnly
-                ? courierRepository.findAllByActiveTrue(pageable)
-                : courierRepository.findAll(pageable);
+    public Page<CourierResponse> getAll(Pageable pageable, boolean activeOnly, String query) {
+
+        boolean hasQuery = query != null && !query.trim().isEmpty();
+        Page<Courier> page;
+
+        if (hasQuery) {
+            String pattern = "%" + query.trim().toLowerCase() + "%";
+            page = courierRepository.searchByPattern(activeOnly, pattern, pageable);
+        } else {
+            page = activeOnly
+                    ? courierRepository.findAllByActiveTrue(pageable)
+                    : courierRepository.findAll(pageable);
+        }
+
         return page.map(this::toResponse);
     }
 

@@ -14,7 +14,7 @@ public interface CourierService {
 
     CourierResponse getById(UUID id);
 
-    Page<CourierResponse> getAll(Pageable pageable, boolean activeOnly);
+    Page<CourierResponse> getAll(Pageable pageable, boolean activeOnly, String query);
 
     List<CourierResponse> getAllActive();
 

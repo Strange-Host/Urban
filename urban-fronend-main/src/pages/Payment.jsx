@@ -18,31 +18,45 @@ export default function Payments() {
   const size = 10;
 
   const tabs = ["All Payments", "M-Pesa", "Cash", "Bank"];
+  const tabMethod = { "M-Pesa": "MPESA", Cash: "CASH", Bank: "BANK" }[activeTab];
 
   useEffect(() => {
-    loadPayments();
-    // eslint-disable-next-line
-  }, [page]);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      loadPayments(page, tabMethod, search.trim(), controller.signal);
+    }, search.trim() ? 300 : 0);
 
-  async function loadPayments() {
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+    // eslint-disable-next-line
+  }, [page, activeTab, search]);
+
+  async function loadPayments(requestPage = page, method, query = "", signal) {
     try {
       setLoading(true);
       setError("");
 
       const res = await api.get("/api/v1/payments", {
         params: {
-          page,
+          page: requestPage,
           size,
           sort: "paymentDate,desc",
+          method: method || undefined,
+          query: query || undefined,
         },
+        signal,
       });
 
+      if (signal?.aborted) return;
       setPageData(res.data);
     } catch (e) {
+      if (signal?.aborted || e.code === "ERR_CANCELED") return;
       console.log(e);
       setError("Failed to load payments. Check backend, token, and CORS.");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }
 
@@ -63,19 +77,6 @@ export default function Payments() {
     });
     // eslint-disable-next-line
   }, [payments]);
-
-  // filtering logic stays same
-  const filtered = normalized.filter((p) => {
-    const matchesSearch =
-      p.id.toLowerCase().includes(search.toLowerCase()) ||
-      p.customer.toLowerCase().includes(search.toLowerCase()) ||
-      p.method.toLowerCase().includes(search.toLowerCase()) ||
-      p.status.toLowerCase().includes(search.toLowerCase());
-
-    if (activeTab === "All Payments") return matchesSearch;
-
-    return matchesSearch && p.method === activeTab;
-  });
 
   function money(value) {
     return `KES ${value.toLocaleString()}`;
@@ -153,7 +154,10 @@ export default function Payments() {
             return (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => {
+                  setPage(0);
+                  setActiveTab(tab);
+                }}
                 className={`whitespace-nowrap rounded-[9px] px-3.5 py-2 text-sm font-semibold ${
                   active ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
                 }`}
@@ -166,8 +170,11 @@ export default function Payments() {
 
         <SearchInput
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by ID, customer, method..."
+          onChange={(e) => {
+            setPage(0);
+            setSearch(e.target.value);
+          }}
+          placeholder="Search by transaction ID, customer, phone..."
           className="w-full md:w-80"
         />
       </div>
@@ -199,7 +206,7 @@ export default function Payments() {
         {/* Rows */}
         {!loading &&
           !error &&
-          filtered.map((p) => {
+          normalized.map((p) => {
             const s = statusStyle(p.status);
             const m = methodBadge(p.method);
 
@@ -244,7 +251,7 @@ export default function Payments() {
           })}
 
         {/* Empty */}
-        {!loading && !error && pageData && filtered.length === 0 && (
+        {!loading && !error && pageData && normalized.length === 0 && (
           <EmptyState
             icon={FiCreditCard}
             title="No payments found"
@@ -256,7 +263,7 @@ export default function Payments() {
         {pageData && (
           <div className="flex flex-wrap items-center justify-between gap-3 bg-white px-4 py-3 text-sm text-slate-500">
             <div>
-              Showing <span className="font-medium text-slate-700">{filtered.length}</span> of{" "}
+              Showing <span className="font-medium text-slate-700">{normalized.length}</span> of{" "}
               <span className="font-medium text-slate-700">{pageData.totalElements}</span> payments
             </div>
 

@@ -6,6 +6,7 @@ import com.devsam.urbantrend.Entity.Order;
 import com.devsam.urbantrend.Entity.Payment;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Enum.OrderStatus;
+import com.devsam.urbantrend.Enum.PaymentMethod;
 import com.devsam.urbantrend.Enum.PaymentStatus;
 import com.devsam.urbantrend.Errors.ResourceNotFoundException;
 import com.devsam.urbantrend.Repository.CustomerRepository;
@@ -83,9 +84,14 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    public Page<PaymentResponse> getAllPayments(Pageable pageable) {
+    public Page<PaymentResponse> getAllPayments(Pageable pageable, String query, PaymentMethod method) {
 
-        Page<Payment> payments = paymentRepository.findAll(pageable);
+        boolean hasQuery = query != null && !query.trim().isEmpty();
+        String pattern = hasQuery ? "%" + query.trim().toLowerCase() + "%" : "%";
+
+        Page<Payment> payments = (method == null && !hasQuery)
+                ? paymentRepository.findAll(pageable)
+                : paymentRepository.search(method, hasQuery, pattern, pageable);
 
         return payments.map(payment -> PaymentResponse.builder()
                 .id(payment.getId())

@@ -163,7 +163,16 @@ public class AuthService {
     }
 
     public Page<User> getAllUsers(Pageable pageable) {
-        return userRepository.findAllByDeletedAtIsNull(pageable);
+        return getAllUsers(pageable, null);
+    }
+
+    public Page<User> getAllUsers(Pageable pageable, String query) {
+        boolean hasQuery = query != null && !query.trim().isEmpty();
+        if (!hasQuery) {
+            return userRepository.findAllByDeletedAtIsNull(pageable);
+        }
+        String pattern = "%" + query.trim().toLowerCase() + "%";
+        return userRepository.searchActiveByPattern(pattern, pageable);
     }
 
     public User getUserById(UUID id) {

@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FiPlus, FiEdit2, FiTrash2, FiTag, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { api } from "../api/api";
+import { invalidateCategories } from "../api/referenceData";
 import { PageHeader, SearchInput, EmptyState, LoadingBlock } from "../components/ui";
 import {
   inputStyle,
@@ -38,36 +39,43 @@ export default function Categories() {
   });
 
   useEffect(() => {
-    loadCategories();
-  }, [page]);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      loadCategories(page, search.trim(), controller.signal);
+    }, search.trim() ? 300 : 0);
 
-  async function loadCategories() {
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+    // eslint-disable-next-line
+  }, [page, search]);
+
+  async function loadCategories(requestPage = page, query = "", signal) {
     try {
       setLoading(true);
       setError("");
 
       const res = await api.get("/api/v1/category", {
-        params: { page, size, sort: "createdAt,desc" },
+        params: {
+          page: requestPage,
+          size,
+          sort: "createdAt,desc",
+          query: query || undefined,
+        },
+        signal,
       });
 
+      if (signal?.aborted) return;
       setPageData(res.data);
       setCategories(res.data.content || []);
     } catch (e) {
+      if (signal?.aborted || e.code === "ERR_CANCELED") return;
       setError("Failed to load categories.");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }
-
-  const filtered = useMemo(() => {
-    return categories.filter((c) => {
-      const q = search.toLowerCase();
-      return (
-        (c.name || "").toLowerCase().includes(q) ||
-        (c.description || "").toLowerCase().includes(q)
-      );
-    });
-  }, [categories, search]);
 
   function openAddModal() {
     setForm({ name: "", description: "" });
@@ -93,7 +101,8 @@ export default function Categories() {
       await api.post("/api/v1/category", form);
       closeAddModal();
       setPage(0);
-      await loadCategories();
+      invalidateCategories();
+      await loadCategories(0, search.trim());
     } catch {
       alert("Failed to add category.");
     } finally {
@@ -129,7 +138,8 @@ export default function Categories() {
         editingCategory
       );
       closeEditModal();
-      await loadCategories();
+      invalidateCategories();
+      await loadCategories(page, search.trim());
     } catch {
       alert("Failed to update category.");
     } finally {
@@ -143,7 +153,8 @@ export default function Categories() {
     try {
       setLoading(true);
       await api.delete(`/api/v1/category/${id}`);
-      await loadCategories();
+      invalidateCategories();
+      await loadCategories(page, search.trim());
     } catch {
       alert("Failed to delete category.");
     } finally {
@@ -202,7 +213,10 @@ export default function Categories() {
       <div className="toolbar" style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
         <SearchInput
           value={search}
-          onChange={(ev) => setSearch(ev.target.value)}
+          onChange={(ev) => {
+            setPage(0);
+            setSearch(ev.target.value);
+          }}
           placeholder="Search categories..."
           className="search-box w-full sm:w-80"
         />
@@ -229,7 +243,7 @@ export default function Categories() {
         </div>
 
         {loading && categories.length === 0 && <LoadingBlock label="Loading categories..." />}
-        {!loading && filtered.length === 0 && (
+        {!loading && categories.length === 0 && (
           <EmptyState
             icon={FiTag}
             title={search ? "No matching categories" : "No categories yet"}
@@ -238,7 +252,7 @@ export default function Categories() {
         )}
 
         {/* Rows */}
-        {filtered.map((c, idx) => (
+        {categories.map((c, idx) => (
           <React.Fragment key={c.id}>
             {/* Desktop row */}
             <div

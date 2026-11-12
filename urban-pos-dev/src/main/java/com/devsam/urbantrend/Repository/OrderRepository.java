@@ -28,7 +28,10 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             OR LOWER(o.accountNumber) LIKE :pattern
             OR LOWER(o.deliveryCity) LIKE :pattern
             OR LOWER(o.deliveryNotes) LIKE :pattern
-            OR o.customerId IN (SELECT c.id FROM Customer c WHERE LOWER(c.name) LIKE :pattern))
+            OR o.customerId IN (SELECT c.id FROM Customer c
+                WHERE LOWER(c.name) LIKE :pattern OR LOWER(c.phone) LIKE :pattern)
+            OR o.id IN (SELECT oi.order.id FROM OrderItem oi
+                WHERE LOWER(oi.product.name) LIKE :pattern))
     """,
             countQuery = """
         SELECT COUNT(o) FROM Order o
@@ -39,7 +42,10 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             OR LOWER(o.accountNumber) LIKE :pattern
             OR LOWER(o.deliveryCity) LIKE :pattern
             OR LOWER(o.deliveryNotes) LIKE :pattern
-            OR o.customerId IN (SELECT c.id FROM Customer c WHERE LOWER(c.name) LIKE :pattern))
+            OR o.customerId IN (SELECT c.id FROM Customer c
+                WHERE LOWER(c.name) LIKE :pattern OR LOWER(c.phone) LIKE :pattern)
+            OR o.id IN (SELECT oi.order.id FROM OrderItem oi
+                WHERE LOWER(oi.product.name) LIKE :pattern))
     """
     )
     Page<UUID> findAllIds(

@@ -16,7 +16,8 @@ import {
   alertError,
   badgeStyle,
 } from "../components/styles";
-import { api } from "../api/api"; // adjust if needed
+import { api } from "../api/api";
+import { loadCategories as fetchCategoryList, invalidateProducts } from "../api/referenceData";
 import { useAuth } from "../auth/useAuth";
 
 export default function Products() {
@@ -108,15 +109,7 @@ export default function Products() {
 
   async function loadCategories() {
     try {
-      const res = await api.get("/api/v1/category", {
-        params: {
-          page: 0,
-          size: 200,
-          sort: "name,asc",
-        },
-      });
-
-      setCategories(res.data.content || []);
+      setCategories(await fetchCategoryList());
     } catch (e) {
       console.log(e);
     }
@@ -205,6 +198,7 @@ export default function Products() {
       });
 
       closeAddModal();
+      invalidateProducts();
       if (page === 0) {
         await loadProducts(0, search);
       } else {
@@ -251,6 +245,7 @@ export default function Products() {
       });
 
       closeEditModal();
+      invalidateProducts();
       await loadProducts(page, search);
     } catch (e) {
       console.error("Failed to update product:", e);
@@ -273,6 +268,7 @@ export default function Products() {
       setError("");
 
       await api.delete(`/api/v1/products/${id}`);
+      invalidateProducts();
       await loadProducts(page, search);
     } catch (e) {
       console.log(e);

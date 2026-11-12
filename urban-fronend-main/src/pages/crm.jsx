@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/api";
+import { loadProducts as fetchProductCatalog } from "../api/referenceData";
 import { publishNotification } from "../utils/notificationBus.js";
 import {
   FiPlus,
@@ -170,10 +171,7 @@ export default function CRM() {
       try {
         setLoadingLeadProducts(true);
         setLeadProductsError("");
-        const res = await api.get("/api/v1/products", {
-          params: { page: 0, size: 500, sort: "name,asc" },
-        });
-        setLeadProducts(res.data.content || []);
+        setLeadProducts(await fetchProductCatalog());
       } catch (err) {
         console.error("Failed to load products for lead form", err);
         setLeadProductsError("Couldn't load products. Please close and reopen this form to try again.");
@@ -252,10 +250,7 @@ export default function CRM() {
     }
 
     try {
-      const productsRes = await api.get("/api/v1/products", {
-        params: { page: 0, size: 200, sort: "name,asc" },
-      });
-      const availableProducts = productsRes.data.content || [];
+      const availableProducts = await fetchProductCatalog();
 
       if (leadProductName) {
         const matchingProducts = availableProducts.filter(

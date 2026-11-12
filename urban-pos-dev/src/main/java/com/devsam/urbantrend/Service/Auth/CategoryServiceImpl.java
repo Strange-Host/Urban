@@ -44,8 +44,15 @@ public class CategoryServiceImpl implements CategoryService {
                 );
     }
     @Override
-    public Page<Category> getAllCategories(Pageable pageable) {
-        return categoryRepository.findAllByDeletedAtIsNull(pageable);
+    public Page<Category> getAllCategories(Pageable pageable, String query) {
+
+        boolean hasQuery = query != null && !query.trim().isEmpty();
+        if (!hasQuery) {
+            return categoryRepository.findAllByDeletedAtIsNull(pageable);
+        }
+
+        String pattern = "%" + query.trim().toLowerCase() + "%";
+        return categoryRepository.searchByPattern(pattern, pageable);
     }
 
     @Override

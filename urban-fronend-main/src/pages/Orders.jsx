@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../api/api";
+import { loadProducts as fetchProductCatalog, loadStaff as fetchStaffList } from "../api/referenceData";
 import { useAuth } from "../auth/useAuth";
 import { printReceiptToUSB } from "../utils/printer";
 import {
@@ -110,10 +111,7 @@ export default function Orders() {
 
     if (!staff && user?.email && (user.role === "ADMIN" || user.role === "MANAGER")) {
       try {
-        const res = await api.get("/api/v1/auth/staffs", {
-          params: { page: 0, size: 500, sort: "createdAt,desc" },
-        });
-        const staffList = res.data?.content || res.data?.data?.content || [];
+        const staffList = await fetchStaffList();
         staff = staffList.find(
           (person) => String(person.email || "").toLowerCase() === user.email.toLowerCase()
         );
@@ -163,9 +161,17 @@ export default function Orders() {
   ];
 
   useEffect(() => {
-    loadOrders();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      loadOrders(page, statusFilter, search.trim(), controller.signal);
+    }, search.trim() ? 300 : 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
     // eslint-disable-next-line
-  }, [page, statusFilter]);
+  }, [page, statusFilter, search]);
 
   useEffect(() => {
     loadProducts();
@@ -201,37 +207,38 @@ export default function Orders() {
     };
   }, [receiptOrder]);
 
-  async function loadOrders() {
+  async function loadOrders(requestPage = page, status = statusFilter, query = "", signal) {
     try {
       setLoading(true);
       setError("");
 
       const res = await api.get("/api/v1/orders", {
         params: {
-          page,
+          page: requestPage,
           size,
           sort: "createdAt,desc",
-          status: statusFilter || undefined,
+          status: status || undefined,
+          query: query || undefined,
         },
+        signal,
       });
 
+      if (signal?.aborted) return;
       setPageData(res.data);
       setOrders(res.data.content || []);
     } catch (e) {
+      if (signal?.aborted || e.code === "ERR_CANCELED") return;
       console.log(e);
       setError("Failed to load orders. Check backend, token, and CORS.");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }
 
   async function loadProducts() {
     try {
-      const res = await api.get("/api/v1/products", {
-        params: { page: 0, size: 500, sort: "createdAt,desc" },
-      });
+      const list = await fetchProductCatalog();
 
-      const list = res.data.content || [];
       setProducts(list);
 
       if (list.length > 0) {
@@ -498,7 +505,7 @@ export default function Orders() {
 
       closeAddModal();
       setPage(0);
-      await loadOrders();
+      await loadOrders(0, statusFilter, search.trim());
 
       alert("Order created successfully!");
     } catch (e) {
@@ -522,7 +529,7 @@ export default function Orders() {
       });
 
       closeEditModal();
-      await loadOrders();
+      await loadOrders(page, statusFilter, search.trim());
 
       if (editStatus === "DISPATCHED_UNPAID") {
         const resolvedServedBy = await resolveServedBy();
@@ -572,7 +579,7 @@ export default function Orders() {
 
       setCashPaymentOrder(null);
       setCashPaymentAmount("");
-      await loadOrders();
+      await loadOrders(page, statusFilter, search.trim());
       alert("Cash payment recorded successfully.");
     } catch (e) {
       console.error("Could not record cash payment:", e);
@@ -608,7 +615,7 @@ export default function Orders() {
       });
 
       closeNotesModal();
-      await loadOrders();
+      await loadOrders(page, statusFilter, search.trim());
 
       alert("Delivery notes updated.");
     } catch (e) {
@@ -646,29 +653,6 @@ export default function Orders() {
 
     return [order.productName || "-"];
   }
-
-  const filteredOrders = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) return orders;
-
-    return orders.filter((order) => {
-      const searchableValues = [
-        order.id,
-        order.customerName,
-        order.phoneNumber,
-        order.orderStatus,
-        niceStatus(order.orderStatus),
-        order.deliveryCity,
-        order.accountNumber,
-        order.deliveryNotes,
-        ...getOrderProductLines(order),
-      ];
-
-      return searchableValues.some((value) =>
-        String(value ?? "").toLowerCase().includes(query)
-      );
-    });
-  }, [orders, search]);
 
   return (
     <div className="orders-page" style={{ width: "100%", boxSizing: "border-box" }}>
@@ -970,7 +954,7 @@ export default function Orders() {
 
         <input
           type="search"
-          aria-label="Search orders on this page"
+          aria-label="Search orders"
           placeholder="Search customer, phone, product, city..."
           value={search}
           onChange={(e) => {
@@ -1037,7 +1021,7 @@ export default function Orders() {
 
         {/* Rows */}
         {!loading &&
-          filteredOrders.map((o, idx) => {
+          orders.map((o, idx) => {
             const s = statusStyle(o.orderStatus);
             const highlight = getParcelAgeHighlight(o);
 
@@ -1191,11 +1175,11 @@ export default function Orders() {
             );
           })}
 
-        {!loading && filteredOrders.length === 0 && (
+        {!loading && orders.length === 0 && (
           <EmptyState
             icon={FiShoppingBag}
             title={search ? "No matching orders" : "No orders found"}
-            message={search ? "No orders match your search on this page." : "Create an order to get started."}
+            message={search ? "No orders match your search." : "Create an order to get started."}
           />
         )}
 
@@ -1217,7 +1201,7 @@ export default function Orders() {
             }}
           >
             <div>
-              Showing {filteredOrders.length} matching orders on this page ({orders.length} loaded, {pageData.totalElements} total)
+              Showing {orders.length} orders ({pageData.totalElements} total)
             </div>
 
             <div className="orders-pagination-controls" style={{ display: "flex", gap: 10, alignItems: "center" }}>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/api";
 import { useAuth } from "../auth/useAuth";
@@ -15,6 +15,7 @@ import {
   FiChevronLeft,
   FiChevronRight,
 } from "react-icons/fi";
+import { invalidateStaff } from "../api/referenceData";
 import { PageHeader, SearchInput, EmptyState, LoadingBlock } from "../components/ui";
 import {
   inputStyle,
@@ -100,21 +101,40 @@ export default function Staff() {
   const [permSaving, setPermSaving] = useState(false);
   const [permSuccess, setPermSuccess] = useState("");
 
-  useEffect(() => { loadStaff(); }, [page]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      loadStaff(page, search.trim(), controller.signal);
+    }, search.trim() ? 300 : 0);
 
-  async function loadStaff() {
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+    // eslint-disable-next-line
+  }, [page, search]);
+
+  async function loadStaff(requestPage = page, query = "", signal) {
     try {
       setLoading(true);
       setError("");
       const res = await api.get("/api/v1/auth/staffs", {
-        params: { page, size, sort: "createdAt,desc" },
+        params: {
+          page: requestPage,
+          size,
+          sort: "createdAt,desc",
+          query: query || undefined,
+        },
+        signal,
       });
+      if (signal?.aborted) return;
       setPageData(res.data);
       setStaffList(res.data.content || []);
     } catch (e) {
+      if (signal?.aborted || e.code === "ERR_CANCELED") return;
       setError("Failed to load staff.");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }
 
@@ -159,18 +179,6 @@ export default function Staff() {
     }
   }
 
-  const filteredStaff = useMemo(() => {
-    return staffList.filter((s) => {
-      const q = search.toLowerCase();
-      const fullName = `${s.firstName || ""} ${s.lastName || ""}`;
-      return (
-        fullName.toLowerCase().includes(q) ||
-        (s.phoneNumber || "").toLowerCase().includes(q) ||
-        (s.role || "").toLowerCase().includes(q)
-      );
-    });
-  }, [staffList, search]);
-
   function openAddModal() {
     setForm({ fullName: "", email: "", phone: "", role: "CASHIER", password: "" });
     setShowPassword(false);
@@ -204,7 +212,8 @@ export default function Staff() {
       });
       closeAddModal();
       setPage(0);
-      await loadStaff();
+      invalidateStaff();
+      await loadStaff(0, search.trim());
     } catch (e) {
       alert("Failed to add staff.");
     } finally {
@@ -217,7 +226,8 @@ export default function Staff() {
     try {
       setLoading(true);
       await api.delete(`/api/v1/auth/user/${id}`);
-      await loadStaff();
+      invalidateStaff();
+      await loadStaff(page, search.trim());
     } catch (e) {
       alert("Delete failed.");
     } finally {
@@ -283,7 +293,10 @@ export default function Staff() {
       <div className="mb-4">
         <SearchInput
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setPage(0);
+            setSearch(e.target.value);
+          }}
           placeholder="Search staff..."
           className="w-full sm:w-80"
         />
@@ -304,10 +317,10 @@ export default function Staff() {
           <div>Actions</div>
         </div>
 
-        {loading && filteredStaff.length === 0 && <LoadingBlock label="Loading staff..." />}
+        {loading && staffList.length === 0 && <LoadingBlock label="Loading staff..." />}
 
         {/* Rows */}
-        {filteredStaff.map((s) => {
+        {staffList.map((s) => {
           const fullName = `${s.firstName || ""} ${s.lastName || ""}`.trim();
           return (
             <div
@@ -354,7 +367,7 @@ export default function Staff() {
           );
         })}
 
-        {filteredStaff.length === 0 && !loading && (
+        {staffList.length === 0 && !loading && (
           <EmptyState icon={FiUsers} title="No staff found" message={search ? "Try a different search term." : undefined} />
         )}
 
@@ -362,7 +375,7 @@ export default function Staff() {
         {pageData && (
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm text-slate-500">
             <div>
-              Showing <span className="font-medium text-slate-700">{filteredStaff.length}</span> of{" "}
+              Showing <span className="font-medium text-slate-700">{staffList.length}</span> of{" "}
               <span className="font-medium text-slate-700">{pageData.totalElements}</span> staff
             </div>
             <div className="flex items-center gap-2">

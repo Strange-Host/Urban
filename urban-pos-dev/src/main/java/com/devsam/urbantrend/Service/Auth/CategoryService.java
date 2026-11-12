@@ -15,7 +15,7 @@ public interface CategoryService {
 
     Category getCategoryById(UUID id);
 
-    Page<Category> getAllCategories(Pageable pageable);
+    Page<Category> getAllCategories(Pageable pageable, String query);
 
     Category updateCategory(UUID id, CategoryRequest request, User user);
 
