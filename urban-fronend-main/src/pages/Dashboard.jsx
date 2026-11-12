@@ -177,7 +177,7 @@ export default function Dashboard() {
     } catch (e) {
       console.log(e);
       if (e.response?.status === 403) {
-        setError();
+        setError("You do not have permission to view all dashboard data.");
       } else {
         setError("Failed to load dashboard data.");
       }

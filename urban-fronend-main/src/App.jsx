@@ -20,10 +20,26 @@ import CRM from "./pages/crm";
 import Courier from "./pages/Courier";
 import DispatchScanner from "./pages/DispatchScanner";
 
-// Helper function to validate token presence and basic integrity
+// Helper function to validate token presence and expiry.
+// An expired access token is still accepted when a refresh token exists:
+// the axios interceptor refreshes it on the first request.
+function isTokenExpired(token) {
+  try {
+    const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(base64));
+    return Boolean(payload?.exp) && payload.exp * 1000 <= Date.now();
+  } catch {
+    return true;
+  }
+}
+
 const isAuthenticated = () => {
   const token = localStorage.getItem("accessToken");
-  return token && token !== "undefined" && token !== "null";
+  if (!token || token === "undefined" || token === "null") return false;
+  if (!isTokenExpired(token)) return true;
+
+  const refreshToken = localStorage.getItem("refreshToken");
+  return Boolean(refreshToken) && refreshToken !== "undefined" && refreshToken !== "null";
 };
 
 function PrivateRoute({ children }) {

@@ -30,7 +30,7 @@ public class StaffLogsController {
     private final UserRepository userRepository; // 👈 swapped from staffRepository
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('CAN_VIEW_STAFF_LOGS')")
     public List<StaffLogResponse> getAll(
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)

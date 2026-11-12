@@ -10,6 +10,63 @@ export const api = axios.create({
   },
 });
 
+// Auth endpoints must never trigger the refresh flow: a 401 there means
+// bad credentials, not an expired session.
+const AUTH_PATHS = [
+  "/api/v1/auth/login",
+  "/api/v1/auth/verify-otp",
+  "/api/v1/auth/register",
+  "/api/v1/auth/refresh",
+  "/api/v1/auth/logout",
+];
+
+function isAuthRequest(config) {
+  const url = config?.url || "";
+  return AUTH_PATHS.some((path) => url.includes(path));
+}
+
+function clearSessionAndRedirect() {
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("otp_email");
+
+  if (window.location.pathname !== "/login") {
+    window.location.href = "/login";
+  }
+}
+
+// Single in-flight refresh shared by all queued 401s.
+let refreshPromise = null;
+
+function refreshAccessToken() {
+  const refreshToken = localStorage.getItem("refreshToken");
+  if (!refreshToken || refreshToken === "undefined" || refreshToken === "null") {
+    return Promise.reject(new Error("No refresh token available"));
+  }
+
+  // Bare axios (not `api`) so a failed refresh cannot re-enter this interceptor.
+  refreshPromise = axios
+    .post(`${api.defaults.baseURL}/api/v1/auth/refresh`, { refreshToken })
+    .then((res) => {
+      const accessToken = res.data?.accessToken;
+      if (!accessToken) {
+        throw new Error("Refresh response missing accessToken");
+      }
+
+      localStorage.setItem("accessToken", accessToken);
+      if (res.data?.refreshToken) {
+        localStorage.setItem("refreshToken", res.data.refreshToken);
+      }
+
+      return accessToken;
+    })
+    .finally(() => {
+      refreshPromise = null;
+    });
+
+  return refreshPromise;
+}
+
 // REQUEST INTERCEPTOR
 api.interceptors.request.use(
   (config) => {
@@ -28,19 +85,25 @@ api.interceptors.request.use(
 // RESPONSE INTERCEPTOR
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     const status = error.response?.status;
+    const original = error.config;
 
-    // only log out when the user is truly unauthorized or token expired
-    if (status === 401) {
-      console.warn("Session expired. Redirecting to login.");
-
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-
-      window.location.href = "/login";
+    if (status !== 401 || !original || original._retry || isAuthRequest(original)) {
+      return Promise.reject(error);
     }
 
-    return Promise.reject(error);
+    original._retry = true;
+
+    try {
+      const accessToken = await (refreshPromise || refreshAccessToken());
+      original.headers = original.headers || {};
+      original.headers.Authorization = `Bearer ${accessToken}`;
+      return api(original);
+    } catch (refreshError) {
+      console.warn("Session expired. Redirecting to login.");
+      clearSessionAndRedirect();
+      return Promise.reject(refreshError);
+    }
   }
 );

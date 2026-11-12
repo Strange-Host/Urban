@@ -399,7 +399,7 @@ function ProductsHandledCard({ targetId, staffName }) {
           params: {
             page,
             size: pageSize,
-            ...(searchTerm.trim() ? { search: searchTerm.trim() } : {}),
+            ...(searchTerm.trim() ? { query: searchTerm.trim() } : {}),
           },
         });
 

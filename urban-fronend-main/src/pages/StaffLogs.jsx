@@ -21,7 +21,7 @@ import {
 import { api } from "../api/api";
 import StatCard from "../components/StatCard";
 import { PageHeader, EmptyState, LoadingBlock } from "../components/ui";
-import { pageBtnStyle } from "../components/styles";
+import { pageBtnStyle, alertError } from "../components/styles";
 
 export default function StaffLogs() {
   const [from, setFrom] = useState("2026-02-01");
@@ -29,12 +29,14 @@ export default function StaffLogs() {
 
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
 
   const fetchLogs = async () => {
     try {
       setLoading(true);
+      setError("");
 
       // Backend expects LocalDateTime (yyyy-MM-dd'T'HH:mm:ss),
       // but our date inputs only give yyyy-MM-dd. Convert here
@@ -49,6 +51,12 @@ export default function StaffLogs() {
       setPage(1);
     } catch (err) {
       console.error("Failed to fetch logs", err);
+      setLogs([]);
+      setError(
+        err.response?.status === 403
+          ? "You do not have permission to view staff logs."
+          : "Failed to load activity logs. Check the backend and try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -210,6 +218,8 @@ export default function StaffLogs() {
       <div className="ui-card overflow-hidden">
         {loading ? (
           <LoadingBlock label="Loading activity..." />
+        ) : error ? (
+          <div style={{ ...alertError, margin: 16 }}>{error}</div>
         ) : sortedLogs.length === 0 ? (
           <EmptyState icon={FiActivity} title="No activity found" message="Try widening the date range." />
         ) : (
@@ -232,7 +242,7 @@ export default function StaffLogs() {
                     className="ui-row grid items-center gap-4 border-b border-slate-100 px-4 py-3 text-sm last:border-b-0"
                     style={{ gridTemplateColumns: cols }}
                   >
-                    <div className="truncate font-medium text-slate-800">{log.staffFirstName || "Unknown"}</div>
+                    <div className="truncate font-medium text-slate-800">{log.staffName || "Unknown"}</div>
                     <div>
                       <span style={actionBadge(log.action)}>{log.action}</span>
                     </div>
@@ -253,7 +263,7 @@ export default function StaffLogs() {
               {paginatedLogs.map((log, i) => (
                 <div key={i} className="p-4">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="font-medium text-slate-800">{log.staffFirstName || "Unknown"}</span>
+                    <span className="font-medium text-slate-800">{log.staffName || "Unknown"}</span>
                     <span style={actionBadge(log.action)}>{log.action}</span>
                   </div>
                   <div className="mt-1 text-sm text-slate-600">

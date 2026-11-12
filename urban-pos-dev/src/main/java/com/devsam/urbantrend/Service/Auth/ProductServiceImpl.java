@@ -14,7 +14,6 @@ import com.devsam.urbantrend.Roles.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -33,10 +32,6 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public Product create(ProductRequest request, User user) {
-
-        if (user.getRole() != UserRole.ADMIN) {
-            throw new AccessDeniedException("Only ADMIN can create products");
-        }
 
         if (request.getSku() != null &&
                 productRepository.existsBySku(request.getSku())) {
@@ -165,10 +160,6 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public Product update(UUID id, ProductRequest request, User user) {
 
-        if (user.getRole() != UserRole.ADMIN) {
-            throw new AccessDeniedException("Only ADMIN can update products");
-        }
-
         Product product = getByProductId(id,user);
 
         if (request.getSku() != null
@@ -201,10 +192,6 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public void delete(UUID id, User user) {
 
-        if (user.getRole() != UserRole.ADMIN) {
-            throw new AccessDeniedException("Only ADMIN can delete products");
-        }
-
         Product product = getByProductId(id, user);
         product.setDeletedAt(LocalDateTime.now());
         product.setStatus(ProductStatus.INACTIVE);
@@ -214,10 +201,6 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public Product assignStaff(UUID productId, UUID staffId, User currentUser) {
-
-        if (currentUser.getRole() != UserRole.ADMIN) {
-            throw new AccessDeniedException("Only ADMIN can assign staff to products");
-        }
 
         Product product = getByProductId(productId, currentUser);
 
@@ -231,10 +214,6 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public Product unassignStaff(UUID productId, User currentUser) {
-
-        if (currentUser.getRole() != UserRole.ADMIN) {
-            throw new AccessDeniedException("Only ADMIN can unassign staff from products");
-        }
 
         Product product = getByProductId(productId, currentUser);
         product.setAssignedStaff(null);

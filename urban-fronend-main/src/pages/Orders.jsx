@@ -111,7 +111,7 @@ export default function Orders() {
       }
     }
 
-    if (!staff && user?.email) {
+    if (!staff && user?.email && (user.role === "ADMIN" || user.role === "MANAGER")) {
       try {
         const res = await api.get("/api/v1/auth/staffs", {
           params: { page: 0, size: 500, sort: "createdAt,desc" },

@@ -9,9 +9,11 @@ import {
 import { FiPlus, FiCheck, FiX, FiDollarSign, FiClipboard, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { PageHeader, EmptyState, LoadingBlock } from "../components/ui";
 import { primaryBtn, pageBtnStyle, tableCard, alertError } from "../components/styles";
+import { useAuth } from "../auth/useAuth";
 
 export default function RequisitionList() {
   const navigate = useNavigate();
+  const { can } = useAuth();
   const [requisitions, setRequisitions] = useState([]);
   const [page, setPage] = useState(0);
   const [size] = useState(10);
@@ -130,18 +132,26 @@ export default function RequisitionList() {
 
   function renderActions(req) {
     if (req.status === "PENDING") {
-      return (
-        <>
-          <button onClick={() => handleApprove(req.id)} style={approveBtn}>
-            <FiCheck size={13} /> Approve
-          </button>
-          <button onClick={() => handleReject(req.id)} style={rejectBtn}>
-            <FiX size={13} /> Reject
-          </button>
-        </>
-      );
+      const canApprove = can("CAN_APPROVE_REQUISITIONS");
+      const canReject = can("CAN_REJECT_REQUISITIONS");
+      if (canApprove || canReject) {
+        return (
+          <>
+            {canApprove && (
+              <button onClick={() => handleApprove(req.id)} style={approveBtn}>
+                <FiCheck size={13} /> Approve
+              </button>
+            )}
+            {canReject && (
+              <button onClick={() => handleReject(req.id)} style={rejectBtn}>
+                <FiX size={13} /> Reject
+              </button>
+            )}
+          </>
+        );
+      }
     }
-    if (req.status === "APPROVED") {
+    if (req.status === "APPROVED" && can("CAN_MARK_REQUISITION_PAID")) {
       return (
         <button onClick={() => handleMarkPaid(req.id)} style={paidBtn}>
           <FiDollarSign size={13} /> Mark Paid
@@ -154,9 +164,11 @@ export default function RequisitionList() {
   return (
     <div>
       <PageHeader title="Requisitions" subtitle="Approve, reject and settle requisitions.">
-        <button onClick={() => navigate("/requisitions/new")} style={primaryBtn}>
-          <FiPlus size={16} /> New Requisition
-        </button>
+        {can("CAN_CREATE_REQUISITIONS") && (
+          <button onClick={() => navigate("/requisitions/new")} style={primaryBtn}>
+            <FiPlus size={16} /> New Requisition
+          </button>
+        )}
       </PageHeader>
 
       {/* Status filter */}
