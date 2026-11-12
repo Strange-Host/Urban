@@ -1,6 +1,9 @@
 package com.devsam.urbantrend.Dtos;
 
 import com.devsam.urbantrend.Enum.OrderType;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,7 +18,10 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderRequest {
+
+    @NotNull
     private UUID customerId;
+
     private UUID assignedTo;
     private BigDecimal totalAmount;
     private BigDecimal paidAmount;
@@ -24,7 +30,13 @@ public class OrderRequest {
     private String deliveryNotes;
     private String invoicePdfUrl;
     private UUID createdBy;
+
+    @NotEmpty
+    @Valid
     private List<OrderItemRequest> items;
+
+    @NotNull
     private OrderType orderType;
+
     private BigDecimal discount;
 }

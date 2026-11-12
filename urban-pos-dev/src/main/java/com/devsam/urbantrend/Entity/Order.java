@@ -5,18 +5,19 @@ import com.devsam.urbantrend.Enum.OrderType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.security.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Entity
 @Builder
-@Data
+@Getter
+@Setter
 @Table(name = "orders")
 @NoArgsConstructor
 @AllArgsConstructor
@@ -42,15 +43,18 @@ public class Order extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "order_status", nullable = false)
+    @Builder.Default
     private OrderStatus orderStatus = OrderStatus.AWAITING_DISPATCH;
 
     @Column(name = "total_amount", precision = 14, scale = 2, nullable = false)
     private BigDecimal totalAmount;
 
     @Column(name = "paid_amount", precision = 14, scale = 2)
+    @Builder.Default
     private BigDecimal paidAmount = BigDecimal.ZERO;
 
     @Column(name = "balance", precision = 14, scale = 2, insertable = false, updatable = false)
+    @Builder.Default
     private BigDecimal balance= BigDecimal.ZERO;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
@@ -63,6 +67,7 @@ public class Order extends BaseEntity {
     private String deliveryCity;
 
     @Column(name = "delivery_fee", precision = 14, scale = 2)
+    @Builder.Default
     private BigDecimal deliveryFee = BigDecimal.ZERO;
 
     @Column(name = "delivery_notes", columnDefinition = "text")

@@ -9,6 +9,7 @@ import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Repository.ProductRepository;
 import com.devsam.urbantrend.Repository.UserRepository;
 import com.devsam.urbantrend.Service.Auth.ProductService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -33,7 +34,7 @@ public class ProductController {
     @PostMapping
     @PreAuthorize("@userPermissionService.hasPermissionByEmail(authentication.name, 'CAN_CREATE_PRODUCTS')")
     public Product createProduct(
-            @RequestBody ProductRequest request,
+            @Valid @RequestBody ProductRequest request,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User user = getUser(userDetails);
@@ -84,7 +85,7 @@ public class ProductController {
     @PreAuthorize("@userPermissionService.hasPermissionByEmail(authentication.name, 'CAN_EDIT_PRODUCTS')")
     public Product updateProduct(
             @PathVariable UUID id,
-            @RequestBody ProductRequest request,
+            @Valid @RequestBody ProductRequest request,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User user = getUser(userDetails);

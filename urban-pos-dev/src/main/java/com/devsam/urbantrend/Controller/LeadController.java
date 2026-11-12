@@ -10,7 +10,7 @@ import com.devsam.urbantrend.Repository.UserRepository;
 import com.devsam.urbantrend.Service.Auth.LeadConversionService;
 import com.devsam.urbantrend.Service.Auth.LeadService;
 import com.devsam.urbantrend.Service.Auth.StaffLogService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -39,6 +39,7 @@ public class LeadController {
     private final LeadConversionService leadConversionService;
     private final UserRepository userRepository;
     private final StaffLogService staffLogService;
+    private final ObjectMapper objectMapper;
 
     @Value("${webhook.wpforms.secret:}")
     private String webhookSecret;
@@ -62,7 +63,6 @@ public class LeadController {
             return ResponseEntity.status(403).body("Invalid webhook secret");
         }
 
-        ObjectMapper mapper = new ObjectMapper();
         Lead lead = new Lead();
 
         lead.setFormId(parseInteger(payload.get("formId"), "formId"));
@@ -121,16 +121,16 @@ public class LeadController {
                 }
             }
             if (!variants.isEmpty()) {
-                lead.setProductOptions(mapper.writeValueAsString(variants));
+                lead.setProductOptions(objectMapper.writeValueAsString(variants));
             }
 
-            lead.setRawData(mapper.writeValueAsString(fields));
+            lead.setRawData(objectMapper.writeValueAsString(fields));
         }
 
         // 🔗 If this lead's product (matched by formName) has a staff
         // assigned to it, route the lead straight to that staff.
         if (lead.getFormName() != null) {
-            productRepository.findFirstByNameIgnoreCase(lead.getFormName().trim())
+            productRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(lead.getFormName().trim())
                     .ifPresent(product -> {
                         if (product.getAssignedStaff() != null) {
                             lead.setAssignedTo(product.getAssignedStaff());
@@ -171,7 +171,6 @@ public class LeadController {
             return ResponseEntity.badRequest().body("Phone number is required");
         }
 
-        ObjectMapper mapper = new ObjectMapper();
         Lead lead = new Lead();
 
         lead.setName(request.getName());
@@ -184,7 +183,7 @@ public class LeadController {
         lead.setAssignedTo(user);
 
         if (request.getProductOptions() != null && !request.getProductOptions().isEmpty()) {
-            lead.setProductOptions(mapper.writeValueAsString(request.getProductOptions()));
+            lead.setProductOptions(objectMapper.writeValueAsString(request.getProductOptions()));
         }
 
         // Keep a record of how this lead was captured (e.g. CALL, WHATSAPP)
@@ -199,7 +198,7 @@ public class LeadController {
         rawSnapshot.put("formName", request.getFormName());
         rawSnapshot.put("additionalInfo", request.getAdditionalInfo());
         rawSnapshot.put("productOptions", request.getProductOptions());
-        lead.setRawData(mapper.writeValueAsString(rawSnapshot));
+        lead.setRawData(objectMapper.writeValueAsString(rawSnapshot));
 
         repository.save(lead);
 

@@ -5,6 +5,7 @@ import com.devsam.urbantrend.Dtos.CourierResponse;
 import com.devsam.urbantrend.Dtos.OrderResponse;
 import com.devsam.urbantrend.Service.Auth.CourierService;
 import com.devsam.urbantrend.Service.Auth.OrderService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,7 +27,7 @@ public class CourierController {
 
     @PostMapping
     @PreAuthorize("hasAuthority('CAN_MANAGE_COURIERS')")
-    public ResponseEntity<CourierResponse> createCourier(@RequestBody CourierRequest request) {
+    public ResponseEntity<CourierResponse> createCourier(@Valid @RequestBody CourierRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(courierService.create(request));
     }
 
@@ -55,7 +56,7 @@ public class CourierController {
     @PreAuthorize("hasAuthority('CAN_MANAGE_COURIERS')")
     public ResponseEntity<CourierResponse> updateCourier(
             @PathVariable UUID id,
-            @RequestBody CourierRequest request
+            @Valid @RequestBody CourierRequest request
     ) {
         return ResponseEntity.ok(courierService.update(id, request));
     }

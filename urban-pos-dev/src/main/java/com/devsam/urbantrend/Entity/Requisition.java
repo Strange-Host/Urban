@@ -5,8 +5,9 @@ import com.devsam.urbantrend.Enum.RequisitionType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -14,7 +15,8 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "requisitions")
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -26,6 +28,7 @@ public class Requisition extends BaseEntity{
 
     @Enumerated(EnumType.STRING)
     @Column(nullable=false)
+    @Builder.Default
     private RequisitionStatus status = RequisitionStatus.PENDING;
 
     @Column(nullable=false, length=150)

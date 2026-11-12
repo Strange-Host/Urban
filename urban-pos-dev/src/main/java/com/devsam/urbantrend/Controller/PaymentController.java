@@ -5,6 +5,7 @@ import com.devsam.urbantrend.Dtos.PaymentResponse;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Repository.UserRepository;
 import com.devsam.urbantrend.Service.Auth.PaymentService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,7 +28,7 @@ public class PaymentController {
     @PostMapping
     @PreAuthorize("hasAuthority('CAN_CREATE_PAYMENTS')")
     public PaymentResponse recordPayment(
-            @RequestBody PaymentRequest request,
+            @Valid @RequestBody PaymentRequest request,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User user = getUser(userDetails);

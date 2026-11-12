@@ -18,13 +18,7 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     boolean existsBySku(String sku);
 
-    Optional<Product> findByNameIgnoreCase(String name);
-
-    Optional<Product> findFirstByNameIgnoreCase(String name);
-
     Optional<Product> findFirstByNameIgnoreCaseAndDeletedAtIsNull(String name);
-
-    List<Product> findAllByDeletedAtIsNullAndAssignedStaffIsNotNull();
 
     List<Product> findAllByDeletedAtIsNullAndAssignedStaff(User assignedStaff);
 

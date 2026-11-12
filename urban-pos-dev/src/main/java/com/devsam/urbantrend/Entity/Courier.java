@@ -5,12 +5,14 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Builder
-@Data
+@Getter
+@Setter
 @Table(name = "couriers")
 @NoArgsConstructor
 @AllArgsConstructor
@@ -29,5 +31,6 @@ public class Courier extends BaseEntity {
     private String notes;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean active = true;
 }

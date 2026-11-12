@@ -6,6 +6,7 @@ import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Repository.CategoryRepository;
 import com.devsam.urbantrend.Repository.UserRepository;
 import com.devsam.urbantrend.Service.Auth.CategoryService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,7 +28,7 @@ public class CategoryController {
     @PostMapping
     @PreAuthorize("hasAuthority('CAN_CREATE_CATEGORIES')")
     public Category createCategory(
-            @RequestBody CategoryRequest categoryRequest,
+            @Valid @RequestBody CategoryRequest categoryRequest,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User user = userRepository.findByEmail(userDetails.getUsername())
@@ -51,7 +52,7 @@ public class CategoryController {
     @PreAuthorize("hasAuthority('CAN_EDIT_CATEGORIES')")
     public Category updateCategory(
             @PathVariable UUID id,
-            @RequestBody CategoryRequest categoryRequest,
+            @Valid @RequestBody CategoryRequest categoryRequest,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User user = userRepository.findByEmail(userDetails.getUsername())

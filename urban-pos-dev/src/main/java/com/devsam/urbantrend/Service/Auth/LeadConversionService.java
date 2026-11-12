@@ -4,7 +4,6 @@ import com.devsam.urbantrend.Dtos.*;
 import com.devsam.urbantrend.Entity.Courier;
 import com.devsam.urbantrend.Entity.Customer;
 import com.devsam.urbantrend.Entity.Lead;
-import com.devsam.urbantrend.Entity.Product;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Enum.OrderType;
 import com.devsam.urbantrend.Events.OrderCreatedEvent;
@@ -15,8 +14,6 @@ import com.devsam.urbantrend.Repository.ProductRepository;
 import com.devsam.urbantrend.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -130,29 +127,6 @@ public class LeadConversionService {
         leadRepository.save(lead);
 
         eventPublisher.publishEvent(new OrderCreatedEvent(order.getId()));
-    }    public Page<LeadResponse> getAll(String status, Pageable pageable) {
-
-        Page<Lead> leads = (status == null)
-                ? leadRepository.findAll(pageable)
-                : leadRepository.findByStatus(status, pageable);
-
-        return leads.map(lead -> {
-
-            Product product = productRepository
-                    .findByNameIgnoreCase(lead.getFormName())
-                    .orElse(null);
-
-            return LeadResponse.builder()
-                    .id(lead.getId())
-                    .name(lead.getName())
-                    .phoneNumber(lead.getPhoneNumber())
-                    .location(lead.getLocation())
-                    .status(lead.getStatus())
-                    .created(lead.getCreated())
-                    .productName(product != null ? product.getName() : null)
-                    .sellingPrice(product != null ? String.valueOf(product.getSellingPrice()) : null)
-                    .build();
-        });
     }
 
     /**

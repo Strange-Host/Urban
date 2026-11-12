@@ -12,7 +12,8 @@ import java.util.UUID;
         name = "user_permissions",
         uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "permission"})
 )
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -30,5 +31,6 @@ public class UserPermission {
     @Column(nullable = false)
     private Permission permission;
 
+    @Builder.Default
     private boolean granted = true;
 }

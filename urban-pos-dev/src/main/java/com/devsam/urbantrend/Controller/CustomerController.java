@@ -3,6 +3,7 @@ package com.devsam.urbantrend.Controller;
 import com.devsam.urbantrend.Dtos.CustomerRequest;
 import com.devsam.urbantrend.Entity.Customer;
 import com.devsam.urbantrend.Service.Auth.CustomerService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,7 +22,7 @@ public class CustomerController {
 
     @PostMapping
     @PreAuthorize("hasAuthority('CAN_CREATE_CUSTOMERS')")
-    public Customer addCustomer(@RequestBody CustomerRequest request) {
+    public Customer addCustomer(@Valid @RequestBody CustomerRequest request) {
         return customerService.addCustomer(request);
     }
 

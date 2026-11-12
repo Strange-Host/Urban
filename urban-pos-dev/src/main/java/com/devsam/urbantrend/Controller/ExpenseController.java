@@ -7,6 +7,7 @@ import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Errors.ResourceNotFoundException;
 import com.devsam.urbantrend.Repository.ExpenseRepository;
 import com.devsam.urbantrend.Repository.UserRepository;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -34,7 +35,7 @@ public class ExpenseController {
     @PostMapping
     @PreAuthorize("hasAuthority('CAN_CREATE_EXPENSES')")
     public ExpenseResponse create(
-            @RequestBody ExpenseRequest req,
+            @Valid @RequestBody ExpenseRequest req,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         Expense expense = Expense.builder()

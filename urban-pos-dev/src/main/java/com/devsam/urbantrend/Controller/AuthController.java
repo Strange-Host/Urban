@@ -5,6 +5,7 @@ import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Repository.UserRepository;
 import com.devsam.urbantrend.Roles.UserRole;
 import com.devsam.urbantrend.Service.Auth.AuthService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,23 +26,23 @@ public class AuthController {
     private final AuthService authService;
     private final UserRepository userRepository;
     @PostMapping("/login")
-    public AuthResponse login(@RequestBody LoginRequest request) {
+    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
     }
 
     @PostMapping("/refresh")
-    public AuthResponse refresh(@RequestBody RefreshTokenRequest request) {
+    public AuthResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
         return authService.refresh(request.getRefreshToken());
     }
 
     @PostMapping("/verify-otp")
-    public AuthResponse verifyOtp(@RequestBody VerifyOtpRequest request) {
+    public AuthResponse verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
         return authService.verifyOtp(request.getEmail(), request.getOtp());
     }
 
     @PostMapping("/register")
     @PreAuthorize("hasAnyRole('ADMIN')")
-    public RegisterResponse register(@RequestBody RegisterRequest request) {
+    public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request);
     }
 

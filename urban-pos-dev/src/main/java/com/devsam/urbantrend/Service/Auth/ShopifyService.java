@@ -4,8 +4,8 @@ import com.devsam.urbantrend.Entity.Lead;
 import com.devsam.urbantrend.Entity.Product;
 import com.devsam.urbantrend.Repository.LeadRepository;
 import com.devsam.urbantrend.Repository.ProductRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -203,7 +203,7 @@ public class ShopifyService {
     private String toJson(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalArgumentException("Unable to serialize Shopify payload");
         }
     }

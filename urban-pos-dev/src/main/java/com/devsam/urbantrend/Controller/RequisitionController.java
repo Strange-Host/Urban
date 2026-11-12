@@ -6,6 +6,7 @@ import com.devsam.urbantrend.Dtos.RequisitionResponse;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Repository.UserRepository;
 import com.devsam.urbantrend.Service.Auth.RequisitionService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -32,7 +33,7 @@ public class RequisitionController {
     @PostMapping
     @PreAuthorize("hasAuthority('CAN_CREATE_REQUISITIONS')")
     public RequisitionResponse create(
-            @RequestBody RequisitionRequest req,
+            @Valid @RequestBody RequisitionRequest req,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         return RequisitionResponse.from(requisitionService.create(req, me(userDetails)));

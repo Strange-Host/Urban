@@ -1,5 +1,6 @@
 package com.devsam.urbantrend.Dtos;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,8 +11,13 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CourierRequest {
+
+    @NotBlank
     private String name;
+
+    @NotBlank
     private String phoneNumber;
+
     private String vehicleInfo;
     private String notes;
     private Boolean active;

@@ -8,8 +8,6 @@ import com.devsam.urbantrend.Errors.ResourceNotFoundException;
 import com.devsam.urbantrend.Repository.*;
 import com.devsam.urbantrend.generator.OrderReferenceGenerator;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CachePut;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -153,7 +151,6 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    @CachePut(value = "ORDERS_CACHE", key = "#result.id")
     public Order updateStatus(UUID id, OrderStatus status, User user) {
 
         Order order = getById(id);
@@ -446,7 +443,6 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    @CachePut(value = "ORDERS_CACHE", key = "#result.id")
     public Order assignCourier(UUID id, AssignCourierRequest request, User user) {
         Order order = getById(id);
 

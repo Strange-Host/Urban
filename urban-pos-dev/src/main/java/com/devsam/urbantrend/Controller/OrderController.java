@@ -11,6 +11,7 @@ import com.devsam.urbantrend.Enum.OrderStatus;
 import com.devsam.urbantrend.Repository.UserRepository;
 import com.devsam.urbantrend.Roles.UserRole;
 import com.devsam.urbantrend.Service.Auth.OrderService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -38,7 +39,7 @@ public class OrderController {
     @PostMapping
     @PreAuthorize("hasAuthority('CAN_CREATE_ORDERS')")
     public ResponseEntity<Order> createOrder(
-            @RequestBody OrderRequest request,
+            @Valid @RequestBody OrderRequest request,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User user = getUser(userDetails);

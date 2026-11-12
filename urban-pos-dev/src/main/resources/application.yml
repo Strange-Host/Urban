@@ -9,12 +9,12 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:migrations
-    ignore-missing-migrations: true
-    repair-on-migrate: true
 
   jpa:
     hibernate:
-      ddl-auto: update
+      # Flyway owns the schema; Hibernate must not mutate it at runtime.
+      ddl-auto: ${JPA_DDL_AUTO:none}
+    open-in-view: false
     show-sql: false
 
 
@@ -52,6 +52,10 @@ seed:
     email: ${SEED_ADMIN_EMAIL:}
     password: ${SEED_ADMIN_PASSWORD:}
     phone: ${SEED_ADMIN_PHONE:}
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://urban-fronend.vercel.app,http://localhost:5173}
 
 server:
   port: 8080

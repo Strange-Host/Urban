@@ -10,7 +10,8 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "payments")
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -28,6 +29,7 @@ public class Payment extends BaseEntity {
     private BigDecimal amount;
 
     @Column(nullable = false, length = 3)
+    @Builder.Default
     private String currency = "KES";
 
     @Column(name = "transaction_ref", length = 100, unique = true)
@@ -44,6 +46,7 @@ public class Payment extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private PaymentStatus status = PaymentStatus.PENDING;
 
     @Column(name = "recorded_by")
@@ -59,9 +62,11 @@ public class Payment extends BaseEntity {
     private String notes;
 
     @Column(name = "is_matched")
+    @Builder.Default
     private boolean matched = false;
 
     @Column(name = "is_suspicious")
+    @Builder.Default
     private boolean suspicious = false;
 }
 
