@@ -77,30 +77,26 @@ export default function Products() {
       setError("");
 
       const query = searchTerm.trim();
-      const res = await api.get("/api/v1/products/search", {
-        params: { query },
+      const res = await api.get("/api/v1/products", {
+        params: {
+          page: requestPage,
+          size,
+          sort: "name,asc",
+          ...(query ? { query } : {}),
+        },
         signal,
       });
 
       if (signal?.aborted) return;
       const data = res.data;
-      const matchingProducts = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.content)
-          ? data.content
-          : Array.isArray(data?.products)
-            ? data.products
-            : Array.isArray(data?.data)
-              ? data.data
-              : [];
-      const totalPages = Math.ceil(matchingProducts.length / size);
+      const list = Array.isArray(data) ? data : data?.content || [];
 
+      setProducts(list);
       setPageData({
-        totalElements: matchingProducts.length,
-        totalPages,
-        last: requestPage + 1 >= totalPages,
+        totalElements: data?.totalElements ?? list.length,
+        totalPages: data?.totalPages ?? 1,
+        last: data?.last ?? true,
       });
-      setProducts(matchingProducts.slice(requestPage * size, (requestPage + 1) * size));
     } catch (e) {
       if (signal?.aborted || e.code === "ERR_CANCELED") return;
       console.log(e);
@@ -209,8 +205,11 @@ export default function Products() {
       });
 
       closeAddModal();
-      setPage(0);
-      await loadProducts();
+      if (page === 0) {
+        await loadProducts(0, search);
+      } else {
+        setPage(0);
+      }
     } catch (e) {
       console.error("Failed to add product:", e);
       if (e.response?.status === 403) {
@@ -252,7 +251,7 @@ export default function Products() {
       });
 
       closeEditModal();
-      await loadProducts();
+      await loadProducts(page, search);
     } catch (e) {
       console.error("Failed to update product:", e);
       if (e.response?.status === 403) {
@@ -274,7 +273,7 @@ export default function Products() {
       setError("");
 
       await api.delete(`/api/v1/products/${id}`);
-      await loadProducts();
+      await loadProducts(page, search);
     } catch (e) {
       console.log(e);
       alert("Failed to delete product. Check console.");

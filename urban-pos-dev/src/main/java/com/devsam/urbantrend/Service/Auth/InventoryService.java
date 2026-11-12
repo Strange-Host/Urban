@@ -12,6 +12,8 @@ public interface InventoryService {
 
     Inventory getInventoryByProduct(UUID productId);
 
+    List<Inventory> getAllInventory();
+
     Inventory restock(InventoryRequest request, User user);
 
     Inventory reduce(InventoryRequest request);

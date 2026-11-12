@@ -13,6 +13,14 @@ public interface InventoryRepository extends JpaRepository<Inventory, UUID> {
 
     @Query("""
         SELECT i FROM Inventory i
+        JOIN FETCH i.product p
+        LEFT JOIN FETCH p.category
+        LEFT JOIN FETCH p.assignedStaff
+    """)
+    List<Inventory> findAllWithProduct();
+
+    @Query("""
+        SELECT i FROM Inventory i
         WHERE i.quantity <= i.reorderLevel
     """)
     List<Inventory> findLowStock();

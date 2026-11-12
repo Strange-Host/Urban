@@ -71,7 +71,7 @@ export default function Inventory() {
       const list = res.data.content || [];
       setProducts(list);
 
-      await loadInventoryForProducts(list);
+      await loadInventory();
     } catch (e) {
       console.log(e);
       setError("Failed to load products/inventory.");
@@ -80,22 +80,15 @@ export default function Inventory() {
     }
   }
 
-  async function loadInventoryForProducts(productList) {
+  async function loadInventory() {
     try {
-      const results = await Promise.all(
-        productList.map(async (p) => {
-          try {
-            const invRes = await api.get(`/api/v1/inventory/${p.id}`);
-            return { productId: p.id, inventory: invRes.data };
-          } catch (e) {
-            return { productId: p.id, inventory: null };
-          }
-        })
-      );
+      const res = await api.get("/api/v1/inventory");
+      const list = Array.isArray(res.data) ? res.data : res.data?.content || [];
 
       const map = {};
-      results.forEach((r) => {
-        map[r.productId] = r.inventory;
+      list.forEach((inv) => {
+        const productId = inv.product?.id || inv.productId;
+        if (productId) map[productId] = inv;
       });
 
       setInventoryMap(map);
@@ -117,6 +110,8 @@ export default function Inventory() {
             id: x.productId || x.product?.id || x.id,
             name: x.productName || x.product?.name || x.name,
             sku: x.sku || x.product?.sku || "",
+            quantity: x.quantity,
+            reorderLevel: x.reorderLevel,
           };
         })
         .filter((x) => x.id);
@@ -365,7 +360,10 @@ export default function Inventory() {
 
         {/* Rows */}
         {tableData.map((p, idx) => {
-          const stock = getStock(p.id);
+          const stock =
+            p.quantity !== undefined && p.quantity !== null
+              ? p.quantity
+              : getStock(p.id);
           const badge = stockBadge(stock);
 
           return (

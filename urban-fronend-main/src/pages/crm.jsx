@@ -71,6 +71,8 @@ function NotificationBell({ onNavigate }) {
 
   useEffect(() => {
     fetchUnread();
+    const intervalId = setInterval(fetchUnread, 60000);
+    return () => clearInterval(intervalId);
   }, [fetchUnread]);
 
   // Close dropdown when clicking outside
@@ -230,30 +232,32 @@ export default function CRM() {
 
   // ── SSE: subscribe to live notifications ────────────────────────────────────
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("accessToken");
     if (!token) return;
 
+    const base = api.defaults.baseURL || "";
     const es = new EventSource(
-      `${import.meta.env.VITE_API_URL}/api/v1/notifications/subscribe`,
-      // Note: EventSource doesn't support custom headers natively
-      // If your backend uses cookie/session auth this works directly.
-      // For JWT, see the note below ↓
+      `${base}/api/v1/notifications/subscribe?access_token=${encodeURIComponent(token)}`
     );
 
     es.addEventListener("notification", (e) => {
       try {
         const notification = JSON.parse(e.data);
-        // Show toast popup
-        setToasts((prev) => [...prev, notification]);
-        // Auto-dismiss after 8 seconds
+
+        setToasts((prev) =>
+          prev.some((t) => t.id === notification.id)
+            ? prev
+            : [...prev, notification]
+        );
+
+        try {
+          publishNotification(notification);
+        } catch (busErr) {
+          console.warn("Failed to publish notification to bus", busErr);
+        }
+
         setTimeout(() => {
           setToasts((prev) => prev.filter((t) => t.id !== notification.id));
-          // Publish to global notification bus so other UI (dashboard/topbar) can react
-          try {
-            publishNotification(notification);
-          } catch (busErr) {
-            console.warn("Failed to publish notification to bus", busErr);
-          }
         }, 8000);
       } catch (err) {
         console.error("Failed to parse SSE notification", err);
@@ -582,9 +586,11 @@ export default function CRM() {
         discount: safeDiscount,
         totalAmount,
         courierId: selectedCourierId || undefined,
+        notes: customerNotes.trim() || undefined,
       });
       setSelectedLead(null);
       setSelectedCourierId("");
+      setCustomerNotes("");
       fetchLeads();
     } catch (err) {
       console.error(err);

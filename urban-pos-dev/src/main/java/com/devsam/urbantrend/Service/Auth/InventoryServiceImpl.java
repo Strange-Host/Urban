@@ -29,6 +29,11 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
+    public List<Inventory> getAllInventory() {
+        return inventoryRepository.findAllWithProduct();
+    }
+
+    @Override
     public Inventory restock(InventoryRequest request, User user) {
 
         // if (user.getRole() != UserRole.ADMIN) {

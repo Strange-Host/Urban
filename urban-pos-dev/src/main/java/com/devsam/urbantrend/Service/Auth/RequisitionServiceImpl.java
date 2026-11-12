@@ -52,8 +52,11 @@ public class RequisitionServiceImpl implements RequisitionService {
     }
 
     @Override
-    public Page<Requisition> getAll(Pageable pageable) {
-        return requisitionRepository.findAllByDeletedAtIsNull(pageable);
+    public Page<Requisition> getAll(RequisitionStatus status, Pageable pageable) {
+        if (status == null) {
+            return requisitionRepository.findAllByDeletedAtIsNull(pageable);
+        }
+        return requisitionRepository.findAllByStatusAndDeletedAtIsNull(status, pageable);
     }
 
     @Override

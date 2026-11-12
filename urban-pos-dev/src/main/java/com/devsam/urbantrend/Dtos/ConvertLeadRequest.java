@@ -23,4 +23,5 @@ public class ConvertLeadRequest {
     private BigDecimal discount;
     private UUID courierId;
     private List<OrderItemRequest> items;
+    private String notes;
 }

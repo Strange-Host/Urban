@@ -4,6 +4,7 @@ import com.devsam.urbantrend.Dtos.RejectRequisitionRequest;
 import com.devsam.urbantrend.Dtos.RequisitionRequest;
 import com.devsam.urbantrend.Dtos.RequisitionResponse;
 import com.devsam.urbantrend.Entity.User;
+import com.devsam.urbantrend.Enum.RequisitionStatus;
 import com.devsam.urbantrend.Repository.UserRepository;
 import com.devsam.urbantrend.Service.Auth.RequisitionService;
 import jakarta.validation.Valid;
@@ -51,8 +52,11 @@ public class RequisitionController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('CAN_VIEW_REQUISITIONS')")
-    public Page<RequisitionResponse> all(Pageable pageable) {
-        return requisitionService.getAll(pageable)
+    public Page<RequisitionResponse> all(
+            @RequestParam(required = false) RequisitionStatus status,
+            Pageable pageable
+    ) {
+        return requisitionService.getAll(status, pageable)
                 .map(RequisitionResponse::from);
     }
 

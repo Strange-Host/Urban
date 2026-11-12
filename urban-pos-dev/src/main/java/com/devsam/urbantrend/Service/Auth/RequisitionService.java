@@ -4,6 +4,7 @@ import com.devsam.urbantrend.Dtos.RequisitionRequest;
 import com.devsam.urbantrend.Dtos.RequisitionResponse;
 import com.devsam.urbantrend.Entity.Requisition;
 import com.devsam.urbantrend.Entity.User;
+import com.devsam.urbantrend.Enum.RequisitionStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -14,7 +15,7 @@ public interface RequisitionService {
 
     Page<Requisition> getMine(User user, Pageable pageable);
 
-    Page<Requisition> getAll(Pageable pageable);
+    Page<Requisition> getAll(RequisitionStatus status, Pageable pageable);
 
     Requisition approve(UUID id, User approver);
 

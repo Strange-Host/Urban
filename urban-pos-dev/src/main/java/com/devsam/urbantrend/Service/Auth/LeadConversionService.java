@@ -102,6 +102,17 @@ public class LeadConversionService {
             }
         }
 
+        StringBuilder deliveryNotes = new StringBuilder();
+        if (request.getNotes() != null && !request.getNotes().isBlank()) {
+            deliveryNotes.append(request.getNotes().trim());
+        }
+        if (lead.getRawData() != null && !lead.getRawData().isBlank()) {
+            if (deliveryNotes.length() > 0) {
+                deliveryNotes.append("\n\n");
+            }
+            deliveryNotes.append("Lead Raw Data: ").append(lead.getRawData());
+        }
+
         OrderRequest orderRequest = OrderRequest.builder()
                 .customerId(customer.getId())
                 .orderType(OrderType.ONLINE)
@@ -109,7 +120,7 @@ public class LeadConversionService {
                 .deliveryCity(deliveryCity)
                 .deliveryFee(deliveryFee)
                 .discount(discount)
-                .deliveryNotes("Lead Raw Data: " + lead.getRawData())
+                .deliveryNotes(deliveryNotes.length() > 0 ? deliveryNotes.toString() : null)
                 .build();
 
         var order = orderService.create(orderRequest, staffUser);

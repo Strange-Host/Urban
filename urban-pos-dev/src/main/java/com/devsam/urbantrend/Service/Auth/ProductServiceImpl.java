@@ -171,10 +171,29 @@ public class ProductServiceImpl implements ProductService {
 
         Product product = getByProductId(id,user);
 
+        if (request.getSku() != null
+                && !request.getSku().isBlank()
+                && !request.getSku().equals(product.getSku())
+                && productRepository.existsBySku(request.getSku())) {
+            throw new IllegalArgumentException("SKU already exists");
+        }
+
+        Category category = null;
+        if (request.getCategoryId() != null) {
+            category = categoryRepository
+                    .findByIdAndDeletedAtIsNull(request.getCategoryId())
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException("Category not found")
+                    );
+        }
+
         product.setName(request.getName());
+        product.setSku(request.getSku());
         product.setSellingPrice(request.getSellingPrice());
         product.setCostPrice(request.getCostPrice());
-
+        if (category != null) {
+            product.setCategory(category);
+        }
 
         return productRepository.save(product);
     }

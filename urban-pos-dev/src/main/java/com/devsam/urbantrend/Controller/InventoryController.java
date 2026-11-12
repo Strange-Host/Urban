@@ -22,6 +22,12 @@ public class InventoryController {
     private final InventoryService inventoryService;
     private final UserRepository userRepository;
 
+    @GetMapping
+    @PreAuthorize("hasAuthority('CAN_VIEW_INVENTORY')")
+    public List<Inventory> getAllInventory() {
+        return inventoryService.getAllInventory();
+    }
+
     @GetMapping("/{productId}")
     @PreAuthorize("hasAuthority('CAN_VIEW_INVENTORY')")
     public Inventory getInventoryByProduct(@PathVariable UUID productId) {

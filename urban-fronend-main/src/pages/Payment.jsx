@@ -86,6 +86,7 @@ export default function Payments() {
   function statusStyle(status) {
     if (status === "Paid") return { color: "#166534", bg: "#dcfce7" };
     if (status === "Pending") return { color: "#92400e", bg: "#fef3c7" };
+    if (status === "Refunded") return { color: "#1e40af", bg: "#dbeafe" };
     if (status === "Failed") return { color: "#991b1b", bg: "#fee2e2" };
     return { color: "#374151", bg: "#f3f4f6" };
   }
@@ -112,13 +113,13 @@ export default function Payments() {
   function mapStatus(status) {
     if (!status) return "Pending";
 
-    if (status === "SUCCESS" || status === "PAID" || status === "COMPLETED")
-      return "Paid";
+    if (status === "SUCCESS" || status === "PAID") return "Paid";
 
     if (status === "PENDING") return "Pending";
 
-    if (status === "FAILED" || status === "CANCELLED" || status === "REVERSED")
-      return "Failed";
+    if (status === "REFUNDED") return "Refunded";
+
+    if (status === "FAILED") return "Failed";
 
     return "Pending";
   }

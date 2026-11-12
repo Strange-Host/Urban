@@ -234,15 +234,13 @@ public class OrderServiceImpl implements OrderService {
                 .map(order -> {
 
                     String customerName = "-";
-                    Long phoneNumber = null;
+                    String phoneNumber = null;
 
                     if (order.getCustomerId() != null) {
                         var customer = customerRepository.findById(order.getCustomerId()).orElse(null);
                         if (customer != null) {
                             customerName = customer.getName() != null ? customer.getName() : "-";
-                            phoneNumber = customer.getPhone() != null
-                                    ? Long.valueOf(customer.getPhone())
-                                    : null;
+                            phoneNumber = customer.getPhone();
                         }
                     }
 

@@ -29,7 +29,7 @@ export default function Expenses() {
 
   // form (matches backend)
   const [form, setForm] = useState({
-    expenseType: "OTHER",
+    expenseType: "MISC",
     amount: "",
     description: "",
     paymentMethod: "CASH",
@@ -87,7 +87,7 @@ export default function Expenses() {
       setIsAddOpen(false);
 
       setForm({
-        expenseType: "OTHER",
+        expenseType: "MISC",
         amount: "",
         description: "",
         paymentMethod: "CASH",
@@ -207,14 +207,14 @@ export default function Expenses() {
                   onChange={(e) => setForm({ ...form, expenseType: e.target.value })}
                   style={inputStyle}
                 >
-                  <option value="RENT">Rent</option>
-                  <option value="SALARY">Salary</option>
-                  <option value="TRANSPORT">Transport</option>
                   <option value="MARKETING">Marketing</option>
+                  <option value="FACILITATION">Facilitation</option>
+                  <option value="RENT">Rent</option>
+                  <option value="SHOP_SUPPLIES">Shop supplies</option>
+                  <option value="TRANSPORT">Transport</option>
+                  <option value="SALARY">Salary</option>
                   <option value="UTILITIES">Utilities</option>
-                  <option value="SUPPLIES">Supplies</option>
-                  <option value="PACKAGING">Packaging</option>
-                  <option value="OTHER">Other</option>
+                  <option value="MISC">Miscellaneous</option>
                 </select>
               </div>
 
@@ -239,7 +239,6 @@ export default function Expenses() {
                   <option value="CASH">Cash</option>
                   <option value="MPESA">M-Pesa</option>
                   <option value="BANK">Bank</option>
-                  <option value="CARD">Card</option>
                 </select>
               </div>
 
