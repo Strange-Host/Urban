@@ -26,10 +26,23 @@ import {
   CartesianGrid,
 } from "recharts";
 
+function toDateInput(date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+function currentMonthRange() {
+  const end = new Date();
+  const start = new Date(end.getFullYear(), end.getMonth(), 1);
+  return { from: toDateInput(start), to: toDateInput(end) };
+}
+
+const DEFAULT_RANGE = currentMonthRange();
+
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [from, setFrom] = useState("2026-02-01");
-  const [to, setTo] = useState("2026-12-28");
+  const [from, setFrom] = useState(DEFAULT_RANGE.from);
+  const [to, setTo] = useState(DEFAULT_RANGE.to);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
 

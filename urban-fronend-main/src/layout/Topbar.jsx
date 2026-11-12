@@ -2,6 +2,7 @@ import React from "react";
 import { useLocation } from "react-router-dom";
 import { FiMenu, FiCalendar } from "react-icons/fi";
 import { titleForPath } from "./navItems";
+import NotificationBell from "../components/NotificationBell";
 
 export default function Topbar({ onMenuClick }) {
   const { pathname } = useLocation();
@@ -26,6 +27,8 @@ export default function Topbar({ onMenuClick }) {
         <div className="text-xs font-medium text-slate-400">Urban Trends</div>
         <div className="truncate text-[15px] font-semibold text-slate-800">{titleForPath(pathname)}</div>
       </div>
+
+      <NotificationBell />
 
       <div className="hidden items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 sm:flex">
         <FiCalendar size={14} className="text-slate-400" />

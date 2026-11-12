@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FiPlus, FiEdit2, FiTrash2, FiTag } from "react-icons/fi";
+import { FiPlus, FiEdit2, FiTrash2, FiTag, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { api } from "../api/api";
 import { PageHeader, SearchInput, EmptyState, LoadingBlock } from "../components/ui";
 import {
@@ -14,6 +14,7 @@ import {
   primaryBtn as saveBtn,
   tableCard,
   alertError,
+  pageBtnStyle,
 } from "../components/styles";
 
 export default function Categories() {
@@ -288,6 +289,34 @@ export default function Categories() {
             </div>
           </React.Fragment>
         ))}
+
+        {pageData && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-sm text-slate-500">
+            <div>
+              Showing <span className="font-medium text-slate-700">{categories.length}</span> of{" "}
+              <span className="font-medium text-slate-700">{pageData.totalElements}</span> categories
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                style={pageBtnStyle}
+                disabled={page === 0}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+              >
+                <FiChevronLeft size={14} /> Prev
+              </button>
+              <span className="px-1 font-medium text-slate-700">
+                {page + 1} / {pageData.totalPages || 1}
+              </span>
+              <button
+                style={pageBtnStyle}
+                disabled={pageData.last}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next <FiChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ADD MODAL */}

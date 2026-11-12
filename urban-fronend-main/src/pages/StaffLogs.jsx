@@ -125,6 +125,14 @@ export default function StaffLogs() {
   const endIdx = startIdx + ITEMS_PER_PAGE;
   const paginatedLogs = sortedLogs.slice(startIdx, endIdx);
 
+  // Sliding window of page buttons so pages beyond the first five stay reachable.
+  const pageWindow = useMemo(() => {
+    const windowSize = 5;
+    const start = Math.max(1, Math.min(page - 2, totalPages - windowSize + 1));
+    const end = Math.min(totalPages, start + windowSize - 1);
+    return Array.from({ length: Math.max(0, end - start + 1) }, (_, i) => start + i);
+  }, [page, totalPages]);
+
   const statIcons = {
     "Total Actions": FiActivity,
     Creates: FiPlusCircle,
@@ -292,23 +300,25 @@ export default function StaffLogs() {
                 </button>
 
                 <div className="hidden items-center gap-1 sm:flex">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    const pageNum = i + 1;
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setPage(pageNum)}
-                        className={`h-8 w-8 rounded-lg text-sm font-medium ${
-                          page === pageNum
-                            ? "bg-brand-600 text-white"
-                            : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                  {totalPages > 5 && <span className="px-1 text-xs text-slate-400">…</span>}
+                  {pageWindow[0] > 1 && (
+                    <span className="px-1 text-xs text-slate-400">…</span>
+                  )}
+                  {pageWindow.map((pageNum) => (
+                    <button
+                      key={pageNum}
+                      onClick={() => setPage(pageNum)}
+                      className={`h-8 w-8 rounded-lg text-sm font-medium ${
+                        page === pageNum
+                          ? "bg-brand-600 text-white"
+                          : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  ))}
+                  {pageWindow[pageWindow.length - 1] < totalPages && (
+                    <span className="px-1 text-xs text-slate-400">…</span>
+                  )}
                 </div>
 
                 <div className="px-2 text-sm text-slate-600 sm:hidden">

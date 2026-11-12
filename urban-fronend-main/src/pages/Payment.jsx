@@ -1,12 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FiRefreshCw, FiCreditCard, FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import { FiCreditCard, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { api } from "../api/api"; // adjust path if needed
 import { PageHeader, SearchInput, EmptyState, LoadingBlock } from "../components/ui";
 import { tableCard, alertError, pageBtnStyle } from "../components/styles";
 
 export default function Payments() {
-  const [from, setFrom] = useState("2026-02-01");
-  const [to, setTo] = useState("2026-02-28");
   const [activeTab, setActiveTab] = useState("All Payments");
   const [search, setSearch] = useState("");
 
@@ -19,7 +17,7 @@ export default function Payments() {
   const [page, setPage] = useState(0);
   const size = 10;
 
-  const tabs = ["All Payments", "M-Pesa", "Card", "Cash", "Bank"];
+  const tabs = ["All Payments", "M-Pesa", "Cash", "Bank"];
 
   useEffect(() => {
     loadPayments();
@@ -94,7 +92,6 @@ export default function Payments() {
   function methodBadge(method) {
     const map = {
       "M-Pesa": { bg: "#ecfdf5", color: "#166534" },
-      Card: { bg: "#e0e7ff", color: "#3730a3" },
       Cash: { bg: "#fff7ed", color: "#9a3412" },
       Bank: { bg: "#f3f4f6", color: "#374151" },
     };
@@ -146,34 +143,7 @@ export default function Payments() {
   return (
     <div>
       {/* Header */}
-      <PageHeader title="Payments" subtitle="Track incoming payments across all channels">
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
-          <input
-            type="date"
-            value={from}
-            aria-label="From date"
-            onChange={(e) => setFrom(e.target.value)}
-            className="h-9 rounded-lg border border-transparent bg-slate-50 px-2.5 text-sm text-slate-700"
-          />
-          <span className="text-slate-400">→</span>
-          <input
-            type="date"
-            value={to}
-            aria-label="To date"
-            onChange={(e) => setTo(e.target.value)}
-            className="h-9 rounded-lg border border-transparent bg-slate-50 px-2.5 text-sm text-slate-700"
-          />
-          <button
-            onClick={() => {
-              setPage(0);
-              loadPayments();
-            }}
-            className="flex h-9 items-center gap-2 rounded-lg bg-brand-600 px-3.5 text-sm font-semibold text-white hover:bg-brand-700"
-          >
-            <FiRefreshCw size={14} /> Apply
-          </button>
-        </div>
-      </PageHeader>
+      <PageHeader title="Payments" subtitle="Track incoming payments across all channels" />
 
       {/* Tabs + Search */}
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

@@ -40,9 +40,6 @@ export default function Orders() {
     user?.phoneNumber ? `${servedByName} · ${user.phoneNumber}` : servedByName
   );
 
-  const [from, setFrom] = useState("2026-02-01");
-  const [to, setTo] = useState("2026-02-29");
-
   // Backend state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
