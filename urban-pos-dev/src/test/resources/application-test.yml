@@ -21,6 +21,14 @@ jwt:
   refresh:
     expiration: 604800000
 
+webhook:
+  wpforms:
+    secret: test-wpforms-secret
+
+kcb:
+  ipn:
+    secret: test-kcb-secret
+
 seed:
   admin:
     email:

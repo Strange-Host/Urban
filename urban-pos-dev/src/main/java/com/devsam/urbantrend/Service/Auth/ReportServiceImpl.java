@@ -29,7 +29,9 @@ public class ReportServiceImpl implements ReportService {
     @Override
     public ProfitReportResponse getProfitReport(LocalDateTime from, LocalDateTime to) {
 
-        Object[] totals = orderItemRepository.sumRevenueAndCogs(from, to, REVENUE_STATUSES);
+        List<Object[]> rows = orderItemRepository.sumRevenueAndCogs(from, to, REVENUE_STATUSES);
+
+        Object[] totals = rows == null || rows.isEmpty() ? null : rows.get(0);
 
         BigDecimal revenue = totals != null && totals.length > 0 ? toBigDecimal(totals[0]) : BigDecimal.ZERO;
         BigDecimal cogs = totals != null && totals.length > 1 ? toBigDecimal(totals[1]) : BigDecimal.ZERO;

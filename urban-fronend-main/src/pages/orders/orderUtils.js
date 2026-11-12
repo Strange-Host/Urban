@@ -66,21 +66,18 @@ export function getParcelAgeHighlight(order) {
   const status = String(order.orderStatus || "").toUpperCase();
 
   // Dispatched and paid: distinct color
-  if (status.includes("DISPATCHED") && status.includes("PAID")) {
+  if (status === "DISPATCHED_PAID") {
     return "#0ea5a4"; // teal for dispatched+paid
   }
 
-  // Green: picked and paid (status includes PAID and is delivered/completed)
-  if (
-    status.includes("PAID") &&
-    (status.includes("DELIVERED") || status === "COMPLETED")
-  ) {
+  // Green: picked and paid (delivered or completed)
+  if (status === "DELIVERED_PAID" || status === "COMPLETED") {
     return "#16a34a"; // green
   }
 
   // Special: DISPATCHED but UNPAID -> show its own color initially,
   // but after 7 days, if still not delivered/paid, fall through to age rules.
-  if (status.includes("DISPATCHED") && status.includes("UNPAID")) {
+  if (status === "DISPATCHED_UNPAID") {
     if (days < 7) return "#1d4ed8"; // blue for recently dispatched-unpaid
     // else allow fallthrough so days>=7 becomes orange, >=14 becomes red
   }

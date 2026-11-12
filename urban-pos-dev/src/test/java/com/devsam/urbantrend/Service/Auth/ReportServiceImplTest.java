@@ -11,6 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -39,7 +40,7 @@ class ReportServiceImplTest {
     @Test
     void netProfitSubtractsCogsAndExpensesFromRevenue() {
         when(orderItemRepository.sumRevenueAndCogs(any(), any(), anyCollection()))
-                .thenReturn(new Object[]{new BigDecimal("1000.00"), new BigDecimal("400.00")});
+                .thenReturn(List.<Object[]>of(new Object[]{new BigDecimal("1000.00"), new BigDecimal("400.00")}));
         when(expenseRepository.sumExpensesBetween(from, to)).thenReturn(new BigDecimal("200.00"));
 
         ProfitReportResponse report = reportService.getProfitReport(from, to);
@@ -53,7 +54,7 @@ class ReportServiceImplTest {
 
     @Test
     void missingTotalsProduceZeroReport() {
-        when(orderItemRepository.sumRevenueAndCogs(any(), any(), anyCollection())).thenReturn(null);
+        when(orderItemRepository.sumRevenueAndCogs(any(), any(), anyCollection())).thenReturn(List.of());
         when(expenseRepository.sumExpensesBetween(from, to)).thenReturn(BigDecimal.ZERO);
 
         ProfitReportResponse report = reportService.getProfitReport(from, to);
@@ -68,7 +69,7 @@ class ReportServiceImplTest {
     @Test
     void numericAggregatesFromTheDatabaseAreConverted() {
         when(orderItemRepository.sumRevenueAndCogs(any(), any(), anyCollection()))
-                .thenReturn(new Object[]{1500L, 500.0d});
+                .thenReturn(List.<Object[]>of(new Object[]{1500L, 500.0d}));
         when(expenseRepository.sumExpensesBetween(from, to)).thenReturn(new BigDecimal("250.5"));
 
         ProfitReportResponse report = reportService.getProfitReport(from, to);

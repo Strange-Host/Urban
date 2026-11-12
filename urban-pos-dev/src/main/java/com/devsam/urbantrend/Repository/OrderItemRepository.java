@@ -23,7 +23,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
           AND oi.order.createdAt BETWEEN :from AND :to
           AND oi.order.orderStatus IN :statuses
     """)
-    Object[] sumRevenueAndCogs(
+    List<Object[]> sumRevenueAndCogs(
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to,
             @Param("statuses") Collection<OrderStatus> statuses
