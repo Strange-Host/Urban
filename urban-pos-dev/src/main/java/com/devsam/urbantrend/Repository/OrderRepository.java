@@ -161,6 +161,16 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     """)
     LocalDateTime findEarliestOrderCreatedAt(@Param("staffId") UUID staffId);
 
+    // Items and products are fetched up front so the entity can be serialised after the
+    // transaction ends (open-in-view is off).
+    @Query("""
+        SELECT DISTINCT o FROM Order o
+        LEFT JOIN FETCH o.items oi
+        LEFT JOIN FETCH oi.product p
+        WHERE o.id = :id AND o.deletedAt IS NULL
+    """)
+    Optional<Order> findDetailedByIdAndDeletedAtIsNull(@Param("id") UUID id);
+
     Optional<Order> findByAccountNumber(String accountNumber);
 
     @Modifying

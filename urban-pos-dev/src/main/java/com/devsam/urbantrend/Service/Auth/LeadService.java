@@ -99,6 +99,8 @@ public class LeadService {
             }
             try {
                 lead.setFollowUpAt(LocalDateTime.parse(followUpAt.trim()));
+                // A new follow-up time must be allowed to notify again.
+                lead.setNotified(false);
             } catch (DateTimeParseException e) {
                 throw new IllegalArgumentException(
                         "followUpAt must be an ISO date-time such as 2026-01-31T14:30"

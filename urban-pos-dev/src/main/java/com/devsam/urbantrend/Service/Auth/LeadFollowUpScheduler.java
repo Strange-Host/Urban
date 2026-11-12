@@ -47,11 +47,20 @@ public class LeadFollowUpScheduler {
 
         for (Lead lead : dueLeads) {
 
-            for (User admin : admins) {
+            // Notify admins and, when set, the assigned staff member.
+            List<User> recipients = new java.util.ArrayList<>(admins);
+            if (lead.getAssignedTo() != null
+                    && recipients.stream().noneMatch(u -> u.getId().equals(lead.getAssignedTo().getId()))) {
+                recipients.add(lead.getAssignedTo());
+            }
 
+            for (User admin : recipients) {
+
+                // Only skip when a reminder was already sent for the current follow-up time,
+                // so a rescheduled lead notifies again.
                 boolean alreadySent = notificationRepository
-                        .existsByUserIdAndReferenceIdAndType(
-                                admin.getId(), lead.getId(), "LEAD_FOLLOWUP");
+                        .existsByUserIdAndReferenceIdAndTypeAndSentAtAfter(
+                                admin.getId(), lead.getId(), "LEAD_FOLLOWUP", lead.getFollowUpAt());
 
                 if (alreadySent) {
                     continue;

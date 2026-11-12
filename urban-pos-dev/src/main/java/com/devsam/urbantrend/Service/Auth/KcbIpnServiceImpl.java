@@ -154,14 +154,14 @@ public class KcbIpnServiceImpl implements KcbIpnService {
 
         OrderStatus current = order.getOrderStatus();
 
-        OrderStatus target = current != null && current.isDeliveredOrClosed()
-                ? current
-                : newBalance.compareTo(BigDecimal.ZERO) <= 0
-                    ? OrderStatus.DISPATCHED_PAID
-                    : OrderStatus.DISPATCHED_PARTIAL;
+        OrderStatus target = current == null
+                ? OrderStatus.AWAITING_DISPATCH
+                : current.afterPayment(newBalance.compareTo(BigDecimal.ZERO) <= 0);
 
-        // Goes through OrderService so a first dispatch also deducts stock.
-        orderService.updateStatus(order.getId(), target, null);
+        // A payment never dispatches an order; only a real status change goes through OrderService.
+        if (target != current) {
+            orderService.updateStatus(order.getId(), target, null);
+        }
 
         if (!wasFullyPaid && newBalance.compareTo(BigDecimal.ZERO) <= 0) {
             log.info("🟢 Order fully paid. Status updated to {}", target);

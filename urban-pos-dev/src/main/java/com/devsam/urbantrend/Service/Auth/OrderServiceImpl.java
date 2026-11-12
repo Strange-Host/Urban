@@ -111,16 +111,17 @@ public class OrderServiceImpl implements OrderService {
                 .createdBy(user.getId())
                 .orderType(req.getOrderType())
                 .orderStatus(status)
-                .paidAmount(BigDecimal.ZERO)
+                .paidAmount(status.isFullyPaid() ? finalTotal : BigDecimal.ZERO)
                 .discount(discount)
                 .deliveryFee(deliveryFee)
                 .totalAmount(finalTotal)
-                .balance(finalTotal)
+                .balance(status.isFullyPaid() ? BigDecimal.ZERO : finalTotal)
                 .accountNumber(fullAccount)
                 .build();
 
         Order savedOrder = orderRepository.save(order);
 
+        List<OrderItem> savedItems = new java.util.ArrayList<>();
         for (OrderItemRequest itemReq : req.getItems()) {
 
             Product product = productRepository.findById(itemReq.getProductId())
@@ -137,8 +138,9 @@ public class OrderServiceImpl implements OrderService {
                     .lineTotal(lineTotal)
                     .build();
 
-            orderItemRepository.save(item);
+            savedItems.add(orderItemRepository.save(item));
         }
+        savedOrder.setItems(savedItems);
 
         // Counter sales leave the shop immediately, so their stock has to move
         // now instead of waiting for a dispatch status transition.
@@ -152,7 +154,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public Order getById(UUID id) {
-        return orderRepository.findByIdAndDeletedAtIsNull(id)
+        return orderRepository.findDetailedByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Order not found with id " + id)
                 );
@@ -166,6 +168,26 @@ public class OrderServiceImpl implements OrderService {
         Order order = getById(id);
         OrderStatus oldStatus = order.getOrderStatus();
 
+        if (status == null) {
+            throw new IllegalArgumentException("status is required");
+        }
+        if (oldStatus != null && !oldStatus.canTransitionTo(status)) {
+            throw new IllegalArgumentException(
+                    "Cannot change order status from " + oldStatus + " to " + status);
+        }
+        if (oldStatus == status) {
+            return order;
+        }
+        // A "paid" status must be backed by recorded payments, otherwise staff could
+        // mark their own orders paid (which drives commission).
+        if (status == OrderStatus.DISPATCHED_PAID || status == OrderStatus.DELIVERED_PAID) {
+            BigDecimal paid = order.getPaidAmount() != null ? order.getPaidAmount() : BigDecimal.ZERO;
+            if (paid.compareTo(order.getTotalAmount()) < 0) {
+                throw new IllegalArgumentException(
+                        "Order is not fully paid; record the payment before marking it " + status);
+            }
+        }
+
         order.setOrderStatus(status);
         Order saved = orderRepository.save(order);
 
@@ -174,6 +196,11 @@ public class OrderServiceImpl implements OrderService {
 
         if (isNowDispatched && !wasAlreadyDispatched) {
             deductInventoryForOrder(saved.getId());
+        }
+
+        // Cancelling an order whose stock was already deducted puts it back.
+        if (status == OrderStatus.CANCELLED && wasAlreadyDispatched) {
+            addInventoryForOrder(saved.getId());
         }
 
         boolean isNowReturnedGood = status == OrderStatus.RETURNED_GOOD;

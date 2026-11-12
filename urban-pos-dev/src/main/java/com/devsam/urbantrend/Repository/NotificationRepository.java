@@ -33,5 +33,8 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 
     boolean existsByUserIdAndReferenceIdAndType(UUID userId, Long referenceId, String type);
 
+    boolean existsByUserIdAndReferenceIdAndTypeAndSentAtAfter(
+            UUID userId, Long referenceId, String type, java.time.LocalDateTime sentAt);
+
     List<Notification> findByReferenceIdAndType(Long referenceId, String type);
 }

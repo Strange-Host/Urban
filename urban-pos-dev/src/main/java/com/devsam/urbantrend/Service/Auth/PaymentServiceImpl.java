@@ -39,11 +39,6 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     public PaymentResponse recordPayment(PaymentRequest request, User user) {
 
-        if (user.getRole() != UserRole.ADMIN &&
-                user.getRole() != UserRole.MANAGER &&
-                user.getRole() != UserRole.CASHIER) {
-            throw new AccessDeniedException("Not allowed to record payments");
-        }
 
         if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Amount must be greater than 0");
@@ -129,9 +124,6 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     public PaymentResponse matchPaymentToOrder(UUID paymentId, UUID orderId, User user) {
 
-        if (user.getRole() != UserRole.ADMIN && user.getRole() != UserRole.MANAGER) {
-            throw new AccessDeniedException("Only ADMIN or MANAGER can reconcile payments");
-        }
 
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment not found"));
@@ -190,17 +182,14 @@ public class PaymentServiceImpl implements PaymentService {
         orderRepository.save(order);
 
         OrderStatus current = order.getOrderStatus();
-        OrderStatus target;
+        OrderStatus target = current == null
+                ? OrderStatus.AWAITING_DISPATCH
+                : current.afterPayment(newBalance.compareTo(BigDecimal.ZERO) <= 0);
 
-        if (current != null && current.isDeliveredOrClosed()) {
-            target = current;
-        } else {
-            target = newBalance.compareTo(BigDecimal.ZERO) <= 0
-                    ? OrderStatus.DISPATCHED_PAID
-                    : OrderStatus.DISPATCHED_PARTIAL;
-        }
-
-        Order updated = orderService.updateStatus(order.getId(), target, user);
+        // A payment never dispatches an order; only a real status change goes through OrderService.
+        Order updated = target == current
+                ? order
+                : orderService.updateStatus(order.getId(), target, user);
 
         if (!wasFullyPaid && updated.getBalance() != null
                 && updated.getBalance().compareTo(BigDecimal.ZERO) <= 0) {

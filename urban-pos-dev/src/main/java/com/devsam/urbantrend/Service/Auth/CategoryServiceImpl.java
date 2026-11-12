@@ -23,9 +23,6 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public Category addCategory(CategoryRequest request, User user) {
 
-        if (user.getRole() != UserRole.ADMIN) {
-            throw new AccessDeniedException("Only ADMIN can create categories");
-        }
 
         if (categoryRepository.existsByNameIgnoreCase(request.getName())) {
             throw new IllegalArgumentException("Category already exists");
@@ -54,9 +51,6 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public Category updateCategory(UUID id, CategoryRequest request, User user) {
 
-        if (user.getRole() != UserRole.ADMIN) {
-            throw new AccessDeniedException("Only ADMIN can update categories");
-        }
 
         Category category = getCategoryById(id);
 
@@ -69,9 +63,6 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public void deleteCategory(UUID id, User user) {
 
-        if (user.getRole() != UserRole.ADMIN) {
-            throw new AccessDeniedException("Only ADMIN can delete categories");
-        }
 
         Category category = getCategoryById(id);
         category.setDeletedAt(java.time.LocalDateTime.now());
