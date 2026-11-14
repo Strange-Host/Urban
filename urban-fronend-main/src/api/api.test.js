@@ -85,4 +85,30 @@ describe("api refresh interceptor", () => {
     expect(apiMock.history.post).toHaveLength(1);
     expect(bareMock.history.post).toHaveLength(0);
   });
+
+  it.each(["/api/v1/auth/logout-check", "/api/v1/auth/logout"])(
+    "refreshes an expired token for %s so the user can still log out",
+    async (path) => {
+      const { axios, api } = await loadApi();
+      const apiMock = new MockAdapter(api);
+      const bareMock = new MockAdapter(axios);
+
+      localStorage.setItem("refreshToken", "refresh-token");
+
+      let attempts = 0;
+      apiMock.onAny(path).reply(() => {
+        attempts += 1;
+        return attempts === 1 ? [401, { title: "Unauthorized" }] : [200, {}];
+      });
+      bareMock
+        .onPost("http://localhost:8080/api/v1/auth/refresh")
+        .reply(200, { accessToken: "fresh-access" });
+
+      const response = await api.post(path, {});
+
+      expect(response.status).toBe(200);
+      expect(attempts).toBe(2);
+      expect(bareMock.history.post).toHaveLength(1);
+    }
+  );
 });

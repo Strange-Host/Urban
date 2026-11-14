@@ -17,12 +17,13 @@ const AUTH_PATHS = [
   "/api/v1/auth/verify-otp",
   "/api/v1/auth/register",
   "/api/v1/auth/refresh",
-  "/api/v1/auth/logout",
 ];
 
 function isAuthRequest(config) {
-  const url = config?.url || "";
-  return AUTH_PATHS.some((path) => url.includes(path));
+  // Exact path match (ignoring any query string). A substring match would also
+  // catch endpoints such as /auth/logout-check, which must be able to refresh.
+  const path = String(config?.url || "").split("?")[0].replace(/\/+$/, "");
+  return AUTH_PATHS.some((authPath) => path === authPath);
 }
 
 function clearSessionAndRedirect() {
