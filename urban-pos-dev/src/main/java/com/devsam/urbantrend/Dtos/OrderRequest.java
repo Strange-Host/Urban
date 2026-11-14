@@ -39,4 +39,11 @@ public class OrderRequest {
     private OrderType orderType;
 
     private BigDecimal discount;
+
+    /**
+     * Required for COUNTER sales (must add up to the sale total); not allowed for ONLINE
+     * orders, which are paid after creation.
+     */
+    @Valid
+    private List<OrderPaymentRequest> payments;
 }

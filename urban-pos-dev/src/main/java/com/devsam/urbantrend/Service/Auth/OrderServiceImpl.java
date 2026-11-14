@@ -4,6 +4,7 @@ import com.devsam.urbantrend.Dtos.*;
 import com.devsam.urbantrend.Entity.*;
 import com.devsam.urbantrend.Enum.OrderStatus;
 import com.devsam.urbantrend.Enum.OrderType;
+import com.devsam.urbantrend.Enum.PaymentStatus;
 import com.devsam.urbantrend.Errors.ResourceNotFoundException;
 import com.devsam.urbantrend.Repository.*;
 import com.devsam.urbantrend.generator.OrderReferenceGenerator;
@@ -18,6 +19,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +39,7 @@ public class OrderServiceImpl implements OrderService {
     private final CustomerRepository customerRepository;
     private final PayrollService payrollService;
     private final CourierRepository courierRepository;
+    private final PaymentRepository paymentRepository;
 
     private static final List<OrderStatus> REVENUE_STATUSES =
             Arrays.stream(OrderStatus.values())
@@ -92,6 +95,16 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal totalAfterDiscount = rawTotal.subtract(discount);
         BigDecimal finalTotal = totalAfterDiscount.add(deliveryFee);
 
+        // A counter sale is paid on the spot, so it must carry real payments that add up
+        // to the total. Online orders get their payments later (KCB IPN / cashier).
+        List<OrderPaymentRequest> payments = req.getPayments() == null ? List.of() : req.getPayments();
+        if (req.getOrderType() == OrderType.COUNTER) {
+            validateCounterPayments(payments, finalTotal);
+        } else if (!payments.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Payments can only be recorded on counter sales; online orders are paid after they are created");
+        }
+
         OrderStatus status = (req.getOrderType() == OrderType.COUNTER)
                 ? OrderStatus.DISPATCHED_PAID
                 : OrderStatus.AWAITING_DISPATCH;
@@ -142,6 +155,24 @@ public class OrderServiceImpl implements OrderService {
         }
         savedOrder.setItems(savedItems);
 
+        if (req.getOrderType() == OrderType.COUNTER) {
+            for (OrderPaymentRequest paymentReq : payments) {
+                paymentRepository.save(Payment.builder()
+                        .order(savedOrder)
+                        .method(paymentReq.getMethod())
+                        .amount(paymentReq.getAmount())
+                        .currency("KES")
+                        .transactionRef(normalizeReference(paymentReq.getTransactionRef()))
+                        .payerPhone(paymentReq.getPayerPhone())
+                        .paymentDate(OffsetDateTime.now())
+                        .status(PaymentStatus.PAID)
+                        .recordedBy(user.getId())
+                        .matched(true)
+                        .notes("Counter sale")
+                        .build());
+            }
+        }
+
         // Counter sales leave the shop immediately, so their stock has to move
         // now instead of waiting for a dispatch status transition.
         if (status.isFullyPaid()) {
@@ -151,6 +182,47 @@ public class OrderServiceImpl implements OrderService {
         return savedOrder;
     }
 
+
+    private void validateCounterPayments(List<OrderPaymentRequest> payments, BigDecimal saleTotal) {
+        if (payments.isEmpty()) {
+            if (saleTotal.signum() == 0) {
+                return;
+            }
+            throw new IllegalArgumentException("A counter sale needs at least one payment");
+        }
+
+        BigDecimal paidTotal = BigDecimal.ZERO;
+        java.util.Set<String> seenReferences = new java.util.HashSet<>();
+
+        for (OrderPaymentRequest payment : payments) {
+            if (payment.getMethod() == null) {
+                throw new IllegalArgumentException("Each payment needs a method");
+            }
+            if (payment.getAmount() == null || payment.getAmount().signum() <= 0) {
+                throw new IllegalArgumentException("Each payment amount must be greater than 0");
+            }
+            paidTotal = paidTotal.add(payment.getAmount());
+
+            String reference = normalizeReference(payment.getTransactionRef());
+            if (reference != null
+                    && (!seenReferences.add(reference) || paymentRepository.existsByTransactionRef(reference))) {
+                throw new IllegalArgumentException("Duplicate transaction reference " + reference);
+            }
+        }
+
+        if (paidTotal.compareTo(saleTotal) != 0) {
+            throw new IllegalArgumentException(
+                    "Payments total " + paidTotal + " but the sale total is " + saleTotal);
+        }
+    }
+
+    private static String normalizeReference(String reference) {
+        if (reference == null) {
+            return null;
+        }
+        String cleaned = reference.trim().toUpperCase();
+        return cleaned.isEmpty() ? null : cleaned;
+    }
 
     @Override
     public Order getById(UUID id) {
