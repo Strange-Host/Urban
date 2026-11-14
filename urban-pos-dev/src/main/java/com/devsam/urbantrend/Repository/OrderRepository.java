@@ -181,6 +181,21 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     Optional<Order> findByAccountNumber(String accountNumber);
 
+    // Order-level discounts are not on the line items, so revenue computed from
+    // OrderItem.lineTotal alone overstates profit by every discount given.
+    @Query("""
+        SELECT COALESCE(SUM(o.discount), 0)
+        FROM Order o
+        WHERE o.deletedAt IS NULL
+          AND o.createdAt BETWEEN :from AND :to
+          AND o.orderStatus IN :statuses
+    """)
+    BigDecimal sumDiscounts(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            @Param("statuses") Collection<OrderStatus> statuses
+    );
+
     // Row locks for flows that read-modify-write an order (payments, status changes).
     // Without them two concurrent requests both read the old paidAmount/status and one
     // update is lost, or stock is deducted twice. Must run inside a transaction.

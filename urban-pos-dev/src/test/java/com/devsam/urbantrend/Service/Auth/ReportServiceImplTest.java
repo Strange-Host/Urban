@@ -3,6 +3,7 @@ package com.devsam.urbantrend.Service.Auth;
 import com.devsam.urbantrend.Dtos.ProfitReportResponse;
 import com.devsam.urbantrend.Repository.ExpenseRepository;
 import com.devsam.urbantrend.Repository.OrderItemRepository;
+import com.devsam.urbantrend.Repository.OrderRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +28,9 @@ class ReportServiceImplTest {
     @Mock
     private ExpenseRepository expenseRepository;
 
+    @Mock
+    private OrderRepository orderRepository;
+
     private ReportServiceImpl reportService;
 
     private final LocalDateTime from = LocalDateTime.of(2025, 1, 1, 0, 0);
@@ -34,7 +38,7 @@ class ReportServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        reportService = new ReportServiceImpl(orderItemRepository, expenseRepository);
+        reportService = new ReportServiceImpl(orderItemRepository, expenseRepository, orderRepository);
     }
 
     @Test
@@ -50,6 +54,20 @@ class ReportServiceImplTest {
         assertThat(report.getGrossProfit()).isEqualByComparingTo("600");
         assertThat(report.getExpenses()).isEqualByComparingTo("200");
         assertThat(report.getNetProfit()).isEqualByComparingTo("400");
+    }
+
+    @Test
+    void discountsReduceRevenueAndProfit() {
+        when(orderItemRepository.sumRevenueAndCogs(any(), any(), anyCollection()))
+                .thenReturn(List.<Object[]>of(new Object[]{new BigDecimal("1000.00"), new BigDecimal("400.00")}));
+        when(orderRepository.sumDiscounts(any(), any(), anyCollection())).thenReturn(new BigDecimal("150.00"));
+        when(expenseRepository.sumExpensesBetween(from, to)).thenReturn(new BigDecimal("200.00"));
+
+        ProfitReportResponse report = reportService.getProfitReport(from, to);
+
+        assertThat(report.getRevenue()).isEqualByComparingTo("850");
+        assertThat(report.getGrossProfit()).isEqualByComparingTo("450");
+        assertThat(report.getNetProfit()).isEqualByComparingTo("250");
     }
 
     @Test

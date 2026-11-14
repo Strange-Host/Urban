@@ -4,6 +4,7 @@ import com.devsam.urbantrend.Dtos.ProfitReportResponse;
 import com.devsam.urbantrend.Enum.OrderStatus;
 import com.devsam.urbantrend.Repository.ExpenseRepository;
 import com.devsam.urbantrend.Repository.OrderItemRepository;
+import com.devsam.urbantrend.Repository.OrderRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,7 @@ public class ReportServiceImpl implements ReportService {
 
     private final OrderItemRepository orderItemRepository;
     private final ExpenseRepository expenseRepository;
+    private final OrderRepository orderRepository;
 
     @Override
     public ProfitReportResponse getProfitReport(LocalDateTime from, LocalDateTime to) {
@@ -35,6 +37,13 @@ public class ReportServiceImpl implements ReportService {
 
         BigDecimal revenue = totals != null && totals.length > 0 ? toBigDecimal(totals[0]) : BigDecimal.ZERO;
         BigDecimal cogs = totals != null && totals.length > 1 ? toBigDecimal(totals[1]) : BigDecimal.ZERO;
+
+        // Revenue is what customers were actually charged for the goods, i.e. after any
+        // order-level discount.
+        BigDecimal discounts = orderRepository.sumDiscounts(from, to, REVENUE_STATUSES);
+        if (discounts != null) {
+            revenue = revenue.subtract(discounts);
+        }
 
         BigDecimal grossProfit = revenue.subtract(cogs);
 
