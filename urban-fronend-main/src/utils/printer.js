@@ -43,7 +43,8 @@ function escapeHtml(value) {
   })[character]);
 }
 
-function buildReceiptHtml(order, mpesaPaybill) {
+export function buildReceiptHtml(order, mpesaPaybill) {
+  const paybill = String(mpesaPaybill || "").trim();
   const productLines = getReceiptProductLines(order);
   const productsHtml = productLines
     .map((line) => `<div>${escapeHtml(line)}</div>`)
@@ -164,16 +165,16 @@ function buildReceiptHtml(order, mpesaPaybill) {
           </div>
 
           <div class="section">
-            <div class="row"><strong>Order</strong><strong>${String(order.id || "").slice(0, 8).toUpperCase()}</strong></div>
+            <div class="row"><strong>Order</strong><strong>${escapeHtml(String(order.id || "").slice(0, 8).toUpperCase())}</strong></div>
             <div class="row"><span>Date</span><span>${formatDateTime(order.createdAt)}</span></div>
-            <div class="row"><span>Status</span><span>${String(order.orderStatus || "").replaceAll("_", " ")}</span></div>
+            <div class="row"><span>Status</span><span>${escapeHtml(String(order.orderStatus || "").replaceAll("_", " "))}</span></div>
             <div class="row"><span>Served by</span><span>${escapeHtml(order.servedBy || "-")}</span></div>
           </div>
 
           <div class="section">
-            <div class="row"><span>Customer</span><strong>${order.customerName || "-"}</strong></div>
-            <div class="row"><span>Phone</span><strong>${order.phoneNumber || "-"}</strong></div>
-            <div class="row"><span>City</span><strong>${order.deliveryCity || "-"}</strong></div>
+            <div class="row"><span>Customer</span><strong>${escapeHtml(order.customerName || "-")}</strong></div>
+            <div class="row"><span>Phone</span><strong>${escapeHtml(order.phoneNumber || "-")}</strong></div>
+            <div class="row"><span>City</span><strong>${escapeHtml(order.deliveryCity || "-")}</strong></div>
           </div>
 
           <div class="section">
@@ -182,8 +183,8 @@ function buildReceiptHtml(order, mpesaPaybill) {
           </div>
 
           <div class="payment">
-            <div class="row"><span>M-Pesa Paybill</span><strong>${mpesaPaybill || "522522"}</strong></div>
-            <div class="row"><span>Account No</span><strong>${order.accountNumber || "Use order number"}</strong></div>
+            ${paybill ? `<div class="row"><span>M-Pesa Paybill</span><strong>${escapeHtml(paybill)}</strong></div>` : ""}
+            <div class="row"><span>Account No</span><strong>${escapeHtml(order.accountNumber || "Use order number")}</strong></div>
           </div>
 
           <div class="footer">
