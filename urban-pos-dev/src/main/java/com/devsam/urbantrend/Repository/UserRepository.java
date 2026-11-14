@@ -21,6 +21,11 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     boolean existsByEmail(String email);
 
+    // Emails are stored lower-case, but people type them however they like.
+    Optional<User> findByEmailIgnoreCaseAndDeletedAtIsNull(String email);
+
+    boolean existsByEmailIgnoreCase(String email);
+
     Page<User> findAllByDeletedAtIsNull(Pageable pageable);
 
     @Query("""
@@ -37,4 +42,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     List<User> findByRole(UserRole role);
 
     List<User> findByRoleNot(UserRole userRole);
+
+    List<User> findByRoleNotAndDeletedAtIsNull(UserRole userRole);
 }

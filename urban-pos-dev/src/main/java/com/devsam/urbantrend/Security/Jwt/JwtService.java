@@ -46,7 +46,19 @@ public class JwtService {
     }
 
     public String generateAccessToken(String email, String role, List<String> authorities) {
+        return generateAccessToken(email, role, authorities, Map.of());
+    }
+
+    /**
+     * @param profile extra identity claims (id, name, phoneNumber) so the frontend can
+     *                show who is signed in and ask for "my" data without another call
+     */
+    public String generateAccessToken(String email, String role, List<String> authorities,
+                                      Map<String, Object> profile) {
         Map<String, Object> claims = new HashMap<>();
+        if (profile != null) {
+            claims.putAll(profile);
+        }
         claims.put("role", role);
         claims.put("authorities", authorities); // ✅ embedded in token
         claims.put(TOKEN_TYPE_CLAIM, TYPE_ACCESS);

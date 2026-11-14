@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -36,6 +37,25 @@ class JwtServiceTest {
         assertThat(jwtService.isAccessToken(token)).isTrue();
         assertThat(jwtService.isRefreshToken(token)).isFalse();
         assertThat(jwtService.isTokenValid(token)).isTrue();
+    }
+
+    @Test
+    void accessTokenCanCarryTheSignedInUsersIdentity() {
+        String token = jwtService.generateAccessToken(
+                "jane@example.com", "STAFF", List.of("ROLE_STAFF"),
+                Map.of("id", "11111111-1111-1111-1111-111111111111",
+                        "name", "Jane Doe",
+                        "phoneNumber", "0712345678"));
+
+        assertThat(jwtService.extractClaim(token, claims -> claims.get("id", String.class)))
+                .isEqualTo("11111111-1111-1111-1111-111111111111");
+        assertThat(jwtService.extractClaim(token, claims -> claims.get("name", String.class)))
+                .isEqualTo("Jane Doe");
+        assertThat(jwtService.extractClaim(token, claims -> claims.get("phoneNumber", String.class)))
+                .isEqualTo("0712345678");
+        // Identity claims never override the security-relevant ones.
+        assertThat(jwtService.extractRole(token)).isEqualTo("STAFF");
+        assertThat(jwtService.isAccessToken(token)).isTrue();
     }
 
     @Test

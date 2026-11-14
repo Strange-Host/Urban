@@ -56,9 +56,9 @@ public class AuthService {
             throw new IllegalArgumentException("firstName, lastName, email, phoneNumber, password and role are required");
         }
 
-        String email = request.getEmail().trim().toLowerCase();
+        String email = normalizeEmail(request.getEmail());
 
-        if (userRepository.existsByEmail(email)) {
+        if (userRepository.existsByEmailIgnoreCase(email)) {
             throw new IllegalArgumentException("Email already registered");
         }
 
@@ -97,7 +97,7 @@ public class AuthService {
 
     public AuthResponse login(LoginRequest request) {
 
-        var user = userRepository.findByEmailAndDeletedAtIsNull(request.getEmail())
+        var user = userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull(normalizeEmail(request.getEmail()))
                 .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
@@ -112,6 +112,22 @@ public class AuthService {
                 null,
                 "OTP_SENT"
         );
+    }
+
+    private static String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase();
+    }
+
+    // Identity shown in the UI and used for "my" screens; kept small on purpose.
+    private static Map<String, Object> profileClaims(User user) {
+        String first = user.getFirstName() == null ? "" : user.getFirstName().trim();
+        String last = user.getLastName() == null ? "" : user.getLastName().trim();
+
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("id", user.getId().toString());
+        claims.put("name", (first + " " + last).trim());
+        claims.put("phoneNumber", user.getPhoneNumber() == null ? "" : user.getPhoneNumber());
+        return claims;
     }
 
     private List<String> buildAuthorities(User user) {
@@ -156,7 +172,8 @@ public class AuthService {
         String newAccessToken = jwtService.generateAccessToken(
                 email,
                 user.getRole().name(),
-                buildAuthorities(user)
+                buildAuthorities(user),
+                profileClaims(user)
         );
 
         return new AuthResponse(newAccessToken, refreshToken, "SUCCESS");
@@ -214,7 +231,7 @@ public class AuthService {
 
     public AuthResponse verifyOtp(String email, String otp) {
 
-        User user = userRepository.findByEmailAndDeletedAtIsNull(email)
+        User user = userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull(normalizeEmail(email))
                 .orElseThrow(() -> new BadCredentialsException("Invalid or expired OTP"));
 
         boolean isValid = otpService.verifyOtp(user.getPhoneNumber(), otp);
@@ -228,7 +245,8 @@ public class AuthService {
         String accessToken = jwtService.generateAccessToken(
                 user.getEmail(),
                 user.getRole().name(),
-                authorities
+                authorities,
+                profileClaims(user)
         );
 
         String refreshToken = jwtService.generateRefreshToken(user.getEmail());
