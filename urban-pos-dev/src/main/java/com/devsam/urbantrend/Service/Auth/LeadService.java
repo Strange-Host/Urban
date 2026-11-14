@@ -11,6 +11,7 @@ import com.devsam.urbantrend.Roles.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -73,6 +74,36 @@ public class LeadService {
                 ? leadRepository.findByAssignedToOrFormNameInAndStatus(user, productNames, normalizedStatus, pageable)
                         .map(LeadResponse::from)
                 : leadRepository.findByAssignedToOrFormNameIn(user, productNames, pageable).map(LeadResponse::from);
+    }
+
+    /**
+     * Staff may only work on their own leads: assigned to them, or enquiries about a
+     * product assigned to them (the same rule the list uses). Admins and managers can work
+     * on any lead.
+     */
+    public void requireAccess(Long leadId, User user) {
+        Lead lead = findLead(leadId);
+
+        if (user.getRole() == UserRole.ADMIN || user.getRole() == UserRole.MANAGER) {
+            return;
+        }
+
+        if (lead.getAssignedTo() != null && user.getId().equals(lead.getAssignedTo().getId())) {
+            return;
+        }
+
+        String formName = lead.getFormName();
+        if (formName != null) {
+            boolean matchesAssignedProduct = productRepository.findAllByDeletedAtIsNullAndAssignedStaff(user)
+                    .stream()
+                    .map(Product::getName)
+                    .anyMatch(name -> name != null && name.equalsIgnoreCase(formName));
+            if (matchesAssignedProduct) {
+                return;
+            }
+        }
+
+        throw new AccessDeniedException("You can only work on leads assigned to you");
     }
 
     public void updateStatus(Long id, String status, String followUpAt) {

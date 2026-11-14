@@ -240,6 +240,7 @@ public class LeadController {
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        leadService.requireAccess(id, user);
         leadConversionService.convertLead(id, request, user);
 
         // 🔥 LOG (conversion)
@@ -296,10 +297,11 @@ public class LeadController {
         String status = body.get("status");
         String followUpAt = body.get("followUpAt");
 
-        leadService.updateStatus(id, status, followUpAt);
-
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
+        leadService.requireAccess(id, user);
+        leadService.updateStatus(id, status, followUpAt);
 
         // 🔥 LOG (status update)
         staffLogService.log(
@@ -324,6 +326,7 @@ public class LeadController {
         User user = userRepository.findByEmailAndDeletedAtIsNull(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        leadService.requireAccess(id, user);
         leadService.updateLead(id, body);
 
         staffLogService.log(

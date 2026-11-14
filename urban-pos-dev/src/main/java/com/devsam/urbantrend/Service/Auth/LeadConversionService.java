@@ -121,6 +121,9 @@ public class LeadConversionService {
                 .deliveryFee(deliveryFee)
                 .discount(discount)
                 .deliveryNotes(deliveryNotes.length() > 0 ? deliveryNotes.toString() : null)
+                // The order belongs to the staff member the lead was assigned to, even when a
+                // manager or admin does the conversion for them.
+                .assignedTo(lead.getAssignedTo() != null ? lead.getAssignedTo().getId() : null)
                 .build();
 
         var order = orderService.create(orderRequest, staffUser);

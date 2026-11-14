@@ -10,6 +10,7 @@ import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Enum.OrderStatus;
 import com.devsam.urbantrend.Repository.UserRepository;
 import com.devsam.urbantrend.Roles.UserRole;
+import com.devsam.urbantrend.Security.OrderAccess;
 import com.devsam.urbantrend.Service.Auth.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -55,15 +56,26 @@ public class OrderController {
             @RequestParam(required = false) UUID courierId,
             @RequestParam(required = false) String query,
 
-            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @AuthenticationPrincipal UserDetails userDetails
     ) {
-        return ResponseEntity.ok(orderService.getAll(status, staffId, courierId, query, pageable));
+        User user = getUser(userDetails);
+
+        // Staff only ever see their own orders, whatever filter they send.
+        UUID effectiveStaffId = OrderAccess.seesAllOrders(user) ? staffId : user.getId();
+
+        return ResponseEntity.ok(orderService.getAll(status, effectiveStaffId, courierId, query, pageable));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('CAN_VIEW_ORDERS')")
-    public ResponseEntity<Order> getOrderById(@PathVariable UUID id) {
-        return ResponseEntity.ok(orderService.getById(id));
+    public ResponseEntity<Order> getOrderById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        Order order = orderService.getById(id);
+        OrderAccess.requireAccess(getUser(userDetails), order);
+        return ResponseEntity.ok(order);
     }
 
     @PatchMapping("/{id}/status")
@@ -74,6 +86,7 @@ public class OrderController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User user = getUser(userDetails);
+        OrderAccess.requireAccess(user, orderService.getById(id));
         return ResponseEntity.ok(orderService.updateStatus(id, status, user));
     }
 
@@ -85,6 +98,7 @@ public class OrderController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User user = getUser(userDetails);
+        OrderAccess.requireAccess(user, orderService.getById(id));
         return ResponseEntity.ok(orderService.updateNotes(id, request, user));
     }
 
@@ -96,6 +110,7 @@ public class OrderController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User user = getUser(userDetails);
+        OrderAccess.requireAccess(user, orderService.getById(id));
         return ResponseEntity.ok(orderService.assignCourier(id, request, user));
     }
 

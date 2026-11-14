@@ -2,6 +2,8 @@ package com.devsam.urbantrend.Controller;
 
 import com.devsam.urbantrend.Dtos.ScanRequest;
 import com.devsam.urbantrend.Dtos.ScanResponse;
+import com.devsam.urbantrend.Service.Auth.OrderService;
+import com.devsam.urbantrend.Security.OrderAccess;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Repository.UserRepository;
 import com.devsam.urbantrend.Service.Auth.DispatchScanService;
@@ -19,6 +21,7 @@ public class DispatchScanController {
 
     private final DispatchScanService dispatchScanService;
     private final UserRepository userRepository;
+    private final OrderService orderService;
 
     @PostMapping
     @PreAuthorize("hasAuthority('CAN_UPDATE_ORDER_STATUS')")
@@ -28,6 +31,14 @@ public class DispatchScanController {
     ) {
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
+        // Staff may only pack and dispatch their own orders.
+        if (request.getOrderId() != null) {
+            OrderAccess.requireAccess(user, orderService.getById(request.getOrderId()));
+        } else if (!OrderAccess.seesAllOrders(user)) {
+            // Without an order the service would pick the oldest awaiting order, which may
+            // belong to someone else.
+            throw new IllegalArgumentException("Choose one of your orders before scanning");
+        }
         return ResponseEntity.ok(dispatchScanService.scan(request, user));
     }
 
