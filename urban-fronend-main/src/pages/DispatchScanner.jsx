@@ -15,7 +15,7 @@ import { fetchOrders, scanBarcode, undoScan } from "../api/ordersApi";
 import { getErrorDetail } from "../api/stickersApi";
 import { useAuth } from "../auth/useAuth";
 import { printReceiptToUSB } from "../utils/printer";
-import { MPESA_PAYBILL } from "./orders/orderUtils";
+import { loadMpesaPaybill } from "../utils/settings";
 
 
 const DUPLICATE_WINDOW_MS = 500;
@@ -144,7 +144,7 @@ function ScannerView() {
           orderStatus: res.orderStatus,
           servedBy,
         },
-        MPESA_PAYBILL
+        await loadMpesaPaybill()
       );
     } catch (e) {
       console.error("Receipt print failed:", e);

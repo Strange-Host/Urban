@@ -12,6 +12,7 @@ import {
   FiUserCheck,
   FiActivity,
   FiMaximize,
+  FiSettings,
 } from "react-icons/fi";
 
 export const navSections = [
@@ -107,6 +108,10 @@ export const navSections = [
         permission: "CAN_VIEW_STAFF_LOGS",
       },
     ],
+  },
+  {
+    label: "Admin",
+    items: [{ to: "/settings", label: "Settings", icon: FiSettings, adminOnly: true }],
   },
 ];
 

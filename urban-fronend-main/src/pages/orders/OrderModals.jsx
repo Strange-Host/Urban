@@ -8,12 +8,12 @@ import {
   secondaryBtn as cancelBtn,
 } from "../../components/styles";
 import {
-  MPESA_PAYBILL,
   formatDateTime,
   formatMoney,
   getOrderProductLines,
   niceStatus,
 } from "./orderUtils";
+import { useMpesaPaybill } from "../../utils/settings";
 import {
   addItemBtn,
   cashPaymentBtn,
@@ -493,6 +493,7 @@ export function OrderNotesModal({
 }
 
 export function ReceiptModal({ order, fallbackServedBy }) {
+  const mpesaPaybill = useMpesaPaybill();
   const productLines = getOrderProductLines(order);
 
   return (
@@ -553,10 +554,10 @@ export function ReceiptModal({ order, fallbackServedBy }) {
         </div>
 
         <div className="receipt-payment">
-          {MPESA_PAYBILL && (
+          {mpesaPaybill && (
             <div className="receipt-row">
               <span>M-Pesa Paybill</span>
-              <strong>{MPESA_PAYBILL}</strong>
+              <strong>{mpesaPaybill}</strong>
             </div>
           )}
           <div className="receipt-row">

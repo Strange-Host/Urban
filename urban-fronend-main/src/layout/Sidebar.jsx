@@ -68,7 +68,11 @@ export default function Sidebar({ onClose, mobile = false, onShowLogoutModal }) 
       <nav className="flex-1 overflow-y-auto px-3 pb-4 pt-2">
         {navSections.map((section) => ({
           ...section,
-          items: section.items.filter((item) => !item.permission || can(item.permission)),
+          items: section.items.filter(
+            (item) =>
+              (!item.permission || can(item.permission)) &&
+              (!item.adminOnly || user?.role === "ADMIN")
+          ),
         })).filter((section) => section.items.length > 0).map((section) => (
           <div key={section.label} className="mb-4">
             <div className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">

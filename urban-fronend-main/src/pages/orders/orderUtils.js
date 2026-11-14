@@ -1,6 +1,4 @@
-import { getMpesaPaybill } from "../../utils/settings";
 
-export const MPESA_PAYBILL = getMpesaPaybill();
 
 export const ORDER_STATUSES = [
   "AWAITING_DISPATCH",

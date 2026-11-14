@@ -20,6 +20,7 @@ const StaffDetails = lazy(() => import("./pages/StaffDetails"));
 const CRM = lazy(() => import("./pages/crm"));
 const Courier = lazy(() => import("./pages/Courier"));
 const DispatchScanner = lazy(() => import("./pages/DispatchScanner"));
+const Settings = lazy(() => import("./pages/Settings"));
 
 function RouteFallback() {
   return (
@@ -123,6 +124,7 @@ export default function App() {
         <Route path="/staff/:id" element={<StaffDetails />} />
         <Route path="/staff-details" element={<StaffDetails />} />
         <Route path="/staff-logs" element={<StaffLogs />} />
+        <Route path="/settings" element={<Settings />} />
       </Route>
 
       {/* 4. Catch-all */}

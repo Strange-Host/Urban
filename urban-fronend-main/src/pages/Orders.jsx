@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../api/api";
 import { loadProducts as fetchProductCatalog, loadStaff as fetchStaffList } from "../api/referenceData";
 import { useAuth } from "../auth/useAuth";
+import { loadMpesaPaybill } from "../utils/settings";
 import { printReceiptToUSB } from "../utils/printer";
 import {
   FiPlus,
@@ -32,7 +33,6 @@ import {
 } from "./orders/OrderModals";
 import { addOrderBtn, editBtn, noteBtn, cashPaymentBtn } from "./orders/orderStyles";
 import {
-  MPESA_PAYBILL,
   ORDER_STATUSES,
   formatDateTime,
   formatMoney,
@@ -181,7 +181,7 @@ export default function Orders() {
         setPrintingReceipt(true);
         await printReceiptToUSB(
           { ...receiptOrder, servedBy: receiptOrder.servedBy || servedBy },
-          MPESA_PAYBILL
+          await loadMpesaPaybill()
         );
       } catch (e) {
         console.error("Receipt print failed:", e);
