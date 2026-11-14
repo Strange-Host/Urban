@@ -65,20 +65,17 @@ export default function Dashboard() {
   const [topSelling, setTopSelling] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
 
-  // Demo chart based on net profit (until we build real daily breakdown)
-  const profitData = useMemo(() => {
-    const value = Number(netProfit || 0);
-
-    return [
-      { name: "Mon", profit: Math.round(value * 0.12) },
-      { name: "Tue", profit: Math.round(value * 0.14) },
-      { name: "Wed", profit: Math.round(value * 0.1) },
-      { name: "Thu", profit: Math.round(value * 0.16) },
-      { name: "Fri", profit: Math.round(value * 0.18) },
-      { name: "Sat", profit: Math.round(value * 0.2) },
-      { name: "Sun", profit: Math.round(value * 0.1) },
-    ];
-  }, [netProfit]);
+  // Real figures for the selected period (no estimated or invented data).
+  const profitData = useMemo(
+    () => [
+      { name: "Revenue", profit: Number(revenue || 0) },
+      { name: "Cost of goods", profit: Number(cogs || 0) },
+      { name: "Gross profit", profit: Number(grossProfit || 0) },
+      { name: "Expenses", profit: Number(expenses || 0) },
+      { name: "Net profit", profit: Number(netProfit || 0) },
+    ],
+    [revenue, cogs, grossProfit, expenses, netProfit]
+  );
 
   useEffect(() => {
     loadDashboard();
@@ -335,12 +332,9 @@ export default function Dashboard() {
               <div>
                 <h3 className="m-0 text-base font-semibold text-slate-900">Profit Breakdown</h3>
                 <p className="m-0 mt-1 text-sm text-slate-500">
-                  Estimated weekly distribution of net profit.
+                  Revenue, costs and profit for the selected period.
                 </p>
               </div>
-              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
-                Preview
-              </span>
             </div>
 
             <div className="h-[280px] sm:h-[300px]">
@@ -356,7 +350,7 @@ export default function Dashboard() {
                   />
                   <Tooltip
                     cursor={{ fill: "rgba(79,70,229,0.06)" }}
-                    formatter={(v) => [money(v), "Profit"]}
+                    formatter={(v) => [money(v), "Amount"]}
                     contentStyle={{
                       borderRadius: 10,
                       border: "1px solid #e5e7eb",
@@ -364,7 +358,7 @@ export default function Dashboard() {
                       fontSize: 13,
                     }}
                   />
-                  <Bar dataKey="profit" fill="#4f46e5" radius={[6, 6, 0, 0]} maxBarSize={44} />
+                  <Bar dataKey="profit" name="Amount" fill="#4f46e5" radius={[6, 6, 0, 0]} maxBarSize={44} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
