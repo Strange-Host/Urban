@@ -15,6 +15,12 @@ import {
 } from "./orderUtils";
 import { useMpesaPaybill } from "../../utils/settings";
 import {
+  PAYMENT_METHODS,
+  emptyPaymentLine,
+  needsReference,
+  normalizeCounterPayments,
+} from "./counterPayments";
+import {
   addItemBtn,
   cashPaymentBtn,
   createBtn,
@@ -38,12 +44,27 @@ export function AddOrderModal({
   onCustomerChange,
   onOrderChange,
   onItemChange,
+  paymentLines,
+  onPaymentLinesChange,
   onOrderTypeChange,
   onAddItem,
   onRemoveItem,
   onClose,
   onCreate,
 }) {
+  const grandTotal = Math.max(0, cartTotal - Number(orderForm.discount || 0));
+  const counterPayments = normalizeCounterPayments(paymentLines, grandTotal);
+  const paidSoFar = counterPayments.reduce(
+    (sum, p) => sum + (Number.isFinite(p.amount) ? p.amount : 0),
+    0
+  );
+  const remaining = Math.round((grandTotal - paidSoFar) * 100) / 100;
+
+  const updatePaymentLine = (index, patch) =>
+    onPaymentLinesChange(
+      paymentLines.map((line, i) => (i === index ? { ...line, ...patch } : line))
+    );
+
   return (
     <div className="orders-modal-overlay" style={modalOverlay} onClick={onClose}>
       <div className="orders-modal" style={modalBoxWide} onClick={(e) => e.stopPropagation()}>
@@ -276,6 +297,90 @@ export function AddOrderModal({
               <div>{formatMoney(Math.max(0, cartTotal - Number(orderForm.discount || 0)))}</div>
             </div>
           </div>
+        )}
+
+        {orderForm.orderType === "COUNTER" && cartItems.length > 0 && (
+          <>
+            <div style={{ ...sectionTitle, marginTop: 16 }}>Payment</div>
+
+            {paymentLines.map((line, index) => (
+              <div
+                key={index}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "110px 1fr 1fr 32px",
+                  gap: 8,
+                  marginBottom: 8,
+                }}
+              >
+                <select
+                  value={line.method}
+                  onChange={(e) => updatePaymentLine(index, { method: e.target.value })}
+                  style={inputStyle}
+                >
+                  {PAYMENT_METHODS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={line.amount}
+                  onChange={(e) => updatePaymentLine(index, { amount: e.target.value })}
+                  placeholder={
+                    paymentLines.length === 1
+                      ? `Amount (${formatMoney(grandTotal)})`
+                      : "Amount"
+                  }
+                  style={inputStyle}
+                />
+
+                <input
+                  value={line.transactionRef}
+                  onChange={(e) => updatePaymentLine(index, { transactionRef: e.target.value })}
+                  placeholder={needsReference(line.method) ? "Transaction code" : "Reference (optional)"}
+                  style={inputStyle}
+                />
+
+                {paymentLines.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => onPaymentLinesChange(paymentLines.filter((_, i) => i !== index))}
+                    style={removeBtn}
+                  >
+                    <FiX size={16} />
+                  </button>
+                ) : (
+                  <span />
+                )}
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => onPaymentLinesChange([...paymentLines, emptyPaymentLine()])}
+              style={addItemBtn}
+            >
+              Split payment
+            </button>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginTop: 10,
+                color: remaining === 0 ? "#15803d" : "#b45309",
+                fontWeight: 600,
+              }}
+            >
+              <div>Paid {formatMoney(paidSoFar)}</div>
+              <div>{remaining === 0 ? "Fully paid" : `Remaining ${formatMoney(remaining)}`}</div>
+            </div>
+          </>
         )}
 
         {/* Footer */}

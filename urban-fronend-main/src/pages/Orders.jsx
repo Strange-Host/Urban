@@ -3,6 +3,12 @@ import { api } from "../api/api";
 import { loadProducts as fetchProductCatalog, loadStaff as fetchStaffList } from "../api/referenceData";
 import { useAuth } from "../auth/useAuth";
 import { loadMpesaPaybill } from "../utils/settings";
+import { getErrorDetail } from "../utils/errors";
+import {
+  emptyPaymentLine,
+  normalizeCounterPayments,
+  validateCounterPayments,
+} from "./orders/counterPayments";
 import { printReceiptToUSB } from "../utils/printer";
 import {
   FiPlus,
@@ -99,6 +105,9 @@ export default function Orders() {
     assignedTo: "",
     discount: 0,
   });
+
+  // Counter sales are paid on the spot; lines allow a split such as cash + M-Pesa.
+  const [paymentLines, setPaymentLines] = useState([emptyPaymentLine()]);
 
   const [itemForm, setItemForm] = useState({
     productId: "",
@@ -253,6 +262,7 @@ export default function Orders() {
     });
 
     setCartItems([]);
+    setPaymentLines([emptyPaymentLine()]);
     setError("");
     setIsAddOpen(true);
   }
@@ -385,6 +395,16 @@ export default function Orders() {
       return;
     }
 
+    const grandTotal = Math.max(0, cartTotal - discountAmount);
+
+    if (orderForm.orderType === "COUNTER") {
+      const paymentError = validateCounterPayments(paymentLines, grandTotal);
+      if (paymentError) {
+        setError(paymentError);
+        return;
+      }
+    }
+
     try {
       setLoading(true);
       setError("");
@@ -424,9 +444,11 @@ export default function Orders() {
           productId: i.productId,
           quantity: i.quantity,
         })),
-      };
 
-      console.log("ORDER PAYLOAD:", orderPayload);
+        ...(orderForm.orderType === "COUNTER"
+          ? { payments: normalizeCounterPayments(paymentLines, grandTotal) }
+          : {}),
+      };
 
       await api.post("/api/v1/orders", orderPayload);
 
@@ -437,7 +459,7 @@ export default function Orders() {
       alert("Order created successfully!");
     } catch (e) {
       console.log(e);
-      setError("Failed to create order. Check backend + customer endpoint.");
+      setError(getErrorDetail(e, "Failed to create order. Check backend + customer endpoint."));
       alert("Failed to create order. Check console.");
     } finally {
       setLoading(false);
@@ -872,7 +894,12 @@ export default function Orders() {
           onCustomerChange={handleCustomerChange}
           onOrderChange={handleOrderChange}
           onItemChange={handleItemChange}
-          onOrderTypeChange={(value) => setOrderForm((f) => ({ ...f, orderType: value }))}
+          paymentLines={paymentLines}
+          onPaymentLinesChange={setPaymentLines}
+          onOrderTypeChange={(value) => {
+            setOrderForm((f) => ({ ...f, orderType: value }));
+            setPaymentLines([emptyPaymentLine()]);
+          }}
           onAddItem={addItemToCart}
           onRemoveItem={removeCartItem}
           onClose={closeAddModal}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isValidPaybill } from "./Settings";
+import { isValidPaybill } from "./paybill";
 
 describe("isValidPaybill", () => {
   it("accepts 4-10 digit numbers and an empty value (clears it)", () => {

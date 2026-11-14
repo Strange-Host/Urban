@@ -9,12 +9,8 @@ import {
   primaryBtn as saveBtn,
   tableCard,
 } from "../components/styles";
+import { isValidPaybill } from "../utils/paybill";
 import { setCachedMpesaPaybill } from "../utils/settings";
-
-export function isValidPaybill(value) {
-  const trimmed = String(value ?? "").trim();
-  return trimmed === "" || /^\d{4,10}$/.test(trimmed);
-}
 
 function errorText(error, fallback) {
   const data = error?.response?.data;
