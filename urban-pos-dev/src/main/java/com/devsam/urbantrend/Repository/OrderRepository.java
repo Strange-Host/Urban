@@ -5,7 +5,9 @@ import com.devsam.urbantrend.Entity.Order;
 import com.devsam.urbantrend.Enum.OrderStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -178,6 +180,17 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     Optional<Order> findDetailedByIdAndDeletedAtIsNull(@Param("id") UUID id);
 
     Optional<Order> findByAccountNumber(String accountNumber);
+
+    // Row locks for flows that read-modify-write an order (payments, status changes).
+    // Without them two concurrent requests both read the old paidAmount/status and one
+    // update is lost, or stock is deducted twice. Must run inside a transaction.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT o FROM Order o WHERE o.id = :id AND o.deletedAt IS NULL")
+    Optional<Order> lockById(@Param("id") UUID id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT o FROM Order o WHERE o.accountNumber = :accountNumber AND o.deletedAt IS NULL")
+    Optional<Order> lockByAccountNumber(@Param("accountNumber") String accountNumber);
 
     @Modifying
     @Query("""

@@ -53,7 +53,7 @@ public class PaymentServiceImpl implements PaymentService {
         Order order = null;
 
         if (request.getOrderId() != null) {
-            order = orderRepository.findById(request.getOrderId())
+            order = orderRepository.lockById(request.getOrderId())
                     .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
             ensureOrderAcceptsPayment(order);
@@ -134,7 +134,7 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment not found"));
 
-        Order order = orderRepository.findById(orderId)
+        Order order = orderRepository.lockById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
         if (payment.isMatched() || payment.getOrder() != null) {

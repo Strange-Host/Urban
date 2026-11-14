@@ -90,7 +90,7 @@ public class KcbIpnServiceImpl implements KcbIpnService {
         Order order = null;
 
         if (supportedCurrency && accountNumber != null && !accountNumber.isBlank()) {
-            order = orderRepository.findByAccountNumber(accountNumber)
+            order = orderRepository.lockByAccountNumber(accountNumber)
                     .orElse(null);
         }
 

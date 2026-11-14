@@ -11,12 +11,14 @@ import com.devsam.urbantrend.Roles.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class InventoryServiceImpl implements InventoryService {
 
     private final InventoryRepository inventoryRepository;
@@ -44,7 +46,7 @@ public class InventoryServiceImpl implements InventoryService {
             throw new IllegalArgumentException("Restock quantity must be greater than zero");
         }
 
-        Inventory inventory = inventoryRepository.findByProductId(request.getProductId())
+        Inventory inventory = inventoryRepository.findByProductIdForUpdate(request.getProductId())
                 .orElseGet(() -> {
                     Product product = productRepository.findById(request.getProductId())
                             .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
@@ -81,7 +83,7 @@ public class InventoryServiceImpl implements InventoryService {
             throw new IllegalArgumentException("Reduce quantity must be greater than zero");
         }
 
-        Inventory inventory = inventoryRepository.findByProductId(request.getProductId())
+        Inventory inventory = inventoryRepository.findByProductIdForUpdate(request.getProductId())
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory not found"));
 
         if (inventory.getQuantity().compareTo(request.getQuantity()) < 0) {
@@ -104,7 +106,7 @@ public class InventoryServiceImpl implements InventoryService {
 
         // Products without an inventory row are not stock-tracked, so there is
         // nothing to deduct. Tracked products still enforce available stock.
-        inventoryRepository.findByProductId(request.getProductId())
+        inventoryRepository.findByProductIdForUpdate(request.getProductId())
                 .ifPresent(inventory -> {
                     if (inventory.getQuantity().compareTo(request.getQuantity()) < 0) {
                         throw new IllegalStateException("Insufficient stock");
@@ -120,7 +122,7 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     public void increaseIfTracked(InventoryRequest request) {
 
-        inventoryRepository.findByProductId(request.getProductId())
+        inventoryRepository.findByProductIdForUpdate(request.getProductId())
                 .ifPresent(inventory -> {
                     inventory.setQuantity(inventory.getQuantity().add(request.getQuantity()));
                     inventoryRepository.save(inventory);

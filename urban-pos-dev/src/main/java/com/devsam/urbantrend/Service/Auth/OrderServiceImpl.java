@@ -165,6 +165,11 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public Order updateStatus(UUID id, OrderStatus status, User user) {
 
+        // Serialise concurrent status changes on the same order so stock is only
+        // deducted or restored once.
+        orderRepository.lockById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id " + id));
+
         Order order = getById(id);
         OrderStatus oldStatus = order.getOrderStatus();
 
@@ -219,9 +224,17 @@ public class OrderServiceImpl implements OrderService {
                 || status == OrderStatus.DISPATCHED_PARTIAL;
     }
 
+    // Inventory rows are locked one product at a time; always taking them in the same
+    // (product id) order prevents two orders with overlapping products deadlocking.
+    private List<OrderItem> itemsInLockOrder(UUID orderId) {
+        List<OrderItem> items = new java.util.ArrayList<>(orderItemRepository.findByOrder_Id(orderId));
+        items.sort(java.util.Comparator.comparing(item -> item.getProduct().getId()));
+        return items;
+    }
+
     private void addInventoryForOrder(UUID orderId) {
 
-        List<OrderItem> items = orderItemRepository.findByOrder_Id(orderId);
+        List<OrderItem> items = itemsInLockOrder(orderId);
 
         for (OrderItem item : items) {
             InventoryRequest req = InventoryRequest.builder()
@@ -235,7 +248,7 @@ public class OrderServiceImpl implements OrderService {
 
     private void deductInventoryForOrder(UUID orderId) {
 
-        List<OrderItem> items = orderItemRepository.findByOrder_Id(orderId);
+        List<OrderItem> items = itemsInLockOrder(orderId);
 
         for (OrderItem item : items) {
             InventoryRequest req = InventoryRequest.builder()
