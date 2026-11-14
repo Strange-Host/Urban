@@ -46,12 +46,16 @@ public class KcbIpnServiceImpl implements KcbIpnService {
                 .getAdditionalData()
                 .getNotificationData();
 
-        String accountNumber = notification.getBusinessKey();
+        // Customers type the account number by hand; ours are stored upper-case.
+        String accountNumber = notification.getBusinessKey() == null
+                ? null
+                : notification.getBusinessKey().trim().toUpperCase();
         String transactionRef = notification.getTransactionID();
 
         if (transactionRef == null || transactionRef.isBlank()) {
             throw new IllegalArgumentException("KCB IPN is missing transactionID");
         }
+        transactionRef = transactionRef.trim().toUpperCase();
 
         BigDecimal amount;
         try {
@@ -94,15 +98,35 @@ public class KcbIpnServiceImpl implements KcbIpnService {
                     .orElse(null);
         }
 
+        // Why the money could not be attached to an order (null when it can be).
+        String unmatchedReason = null;
+        boolean overpaid = false;
+        BigDecimal balanceBefore = BigDecimal.ZERO;
+
         if (!supportedCurrency) {
             log.warn("⚠ Unsupported KCB currency {}, payment stored as unmatched", currency);
+            unmatchedReason = "unsupported currency " + currency;
         } else if (order == null) {
             log.warn("⚠ No order found for account number={}", accountNumber);
-        } else if (order.getOrderStatus() == OrderStatus.CANCELLED) {
-            log.warn("⚠ Order {} is cancelled, payment stored as unmatched", order.getId());
+            unmatchedReason = String.valueOf(notification.getNarration());
+        } else if (order.getOrderStatus() != null && !order.getOrderStatus().acceptsPayment()) {
+            // Same rule as manual payments: cancelled and returned orders take no money.
+            log.warn("⚠ Order {} is {}, payment stored as unmatched", order.getId(), order.getOrderStatus());
+            unmatchedReason = "order is " + order.getOrderStatus();
             order = null;
         } else {
-            log.info("✅ Order found: id={}", order.getId());
+            BigDecimal alreadyPaid = order.getPaidAmount() == null ? BigDecimal.ZERO : order.getPaidAmount();
+            balanceBefore = order.getTotalAmount().subtract(alreadyPaid).max(BigDecimal.ZERO);
+
+            if (balanceBefore.signum() == 0) {
+                // Do not silently inflate paidAmount; park the money for a person to resolve.
+                log.warn("⚠ Order {} is already fully paid, payment stored as unmatched", order.getId());
+                unmatchedReason = "order already fully paid";
+                order = null;
+            } else {
+                overpaid = amount.compareTo(balanceBefore) > 0;
+                log.info("✅ Order found: id={}", order.getId());
+            }
         }
 
         // Save payment whether matched or unmatched
@@ -117,13 +141,14 @@ public class KcbIpnServiceImpl implements KcbIpnService {
                 .paymentDate(OffsetDateTime.now())
                 .status(PaymentStatus.SUCCESS)
                 .matched(order != null)
-                .suspicious(!supportedCurrency)
+                .suspicious(!supportedCurrency || overpaid)
                 .notes(
-                        !supportedCurrency
-                                ? "UNMATCHED KCB IPN: unsupported currency " + currency
-                                : order == null
-                                    ? "UNMATCHED KCB IPN: " + notification.getNarration()
-                                    : "KCB IPN: " + notification.getNarration()
+                        unmatchedReason != null
+                                ? "UNMATCHED KCB IPN: " + unmatchedReason
+                                : "KCB IPN: " + notification.getNarration()
+                                    + (overpaid
+                                        ? " | OVERPAYMENT: received " + amount + ", balance was " + balanceBefore
+                                        : "")
                 )
                 .build();
 

@@ -30,6 +30,11 @@ public enum OrderStatus {
                 || this == COMPLETED;
     }
 
+    /** Cancelled and returned orders no longer accept money. */
+    public boolean acceptsPayment() {
+        return this != CANCELLED && !name().startsWith("RETURN");
+    }
+
     public boolean isDeliveredOrClosed() {
         return this == DELIVERED_PAID
                 || this == DELIVERED_UNPAID

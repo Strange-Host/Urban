@@ -43,8 +43,11 @@ public class PaymentServiceImpl implements PaymentService {
             throw new IllegalArgumentException("Amount must be greater than 0");
         }
 
-        if (request.getTransactionRef() != null &&
-                paymentRepository.existsByTransactionRef(request.getTransactionRef())) {
+        // Blank references ("") must not count as a reference, and M-Pesa/bank codes
+        // are case-insensitive: "abc123 " and "ABC123" are the same transaction.
+        String transactionRef = normalizeReference(request.getTransactionRef());
+
+        if (transactionRef != null && paymentRepository.existsByTransactionRef(transactionRef)) {
             throw new IllegalArgumentException("Duplicate transaction reference");
         }
 
@@ -55,6 +58,7 @@ public class PaymentServiceImpl implements PaymentService {
                     .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
             ensureOrderAcceptsPayment(order);
+            ensureWithinBalance(order, request.getAmount());
         }
 
         Payment payment = Payment.builder()
@@ -62,7 +66,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .method(request.getMethod())
                 .amount(request.getAmount())
                 .currency("KES")
-                .transactionRef(request.getTransactionRef())
+                .transactionRef(transactionRef)
                 .payerPhone(request.getPayerPhone())
                 .payerName(request.getPayerName())
                 .notes(request.getNotes())
@@ -149,6 +153,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         ensureOrderAcceptsPayment(order);
+        ensureWithinBalance(order, payment.getAmount());
 
         payment.setOrder(order);
         payment.setMatched(true);
@@ -165,10 +170,32 @@ public class PaymentServiceImpl implements PaymentService {
     private void ensureOrderAcceptsPayment(Order order) {
         OrderStatus status = order.getOrderStatus();
 
-        if (status == OrderStatus.CANCELLED
-                || (status != null && status.name().startsWith("RETURN"))) {
+        if (status != null && !status.acceptsPayment()) {
             throw new IllegalArgumentException("Cannot apply a payment to a cancelled or returned order");
         }
+    }
+
+    // A recorded payment may not exceed what the order still owes. Previously the excess
+    // was silently absorbed (balance clamped to 0) and paidAmount drifted above the total.
+    private void ensureWithinBalance(Order order, BigDecimal amount) {
+        BigDecimal paid = order.getPaidAmount() != null ? order.getPaidAmount() : BigDecimal.ZERO;
+        BigDecimal balance = order.getTotalAmount().subtract(paid).max(BigDecimal.ZERO);
+
+        if (balance.signum() == 0) {
+            throw new IllegalArgumentException("Order is already fully paid");
+        }
+        if (amount.compareTo(balance) > 0) {
+            throw new IllegalArgumentException(
+                    "Payment of " + amount + " exceeds the order balance of " + balance);
+        }
+    }
+
+    private static String normalizeReference(String reference) {
+        if (reference == null) {
+            return null;
+        }
+        String cleaned = reference.trim().toUpperCase();
+        return cleaned.isEmpty() ? null : cleaned;
     }
 
     private void applyPaymentToOrder(Order order, Payment payment, User user) {
