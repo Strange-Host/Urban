@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiBell } from "react-icons/fi";
 import { api } from "../api/api";
+import { subscribeToNotifications } from "../utils/notificationStream";
 
 function formatDateTime(dateString) {
   if (!dateString) return "";
@@ -27,29 +28,14 @@ export default function NotificationBell() {
   useEffect(() => {
     fetchUnread();
 
-    const token = localStorage.getItem("accessToken");
-    if (!token) return;
-
-    const base = api.defaults.baseURL || "";
-    const es = new EventSource(
-      `${base}/api/v1/notifications/subscribe?access_token=${encodeURIComponent(token)}`
-    );
-
-    es.addEventListener("notification", (e) => {
-      try {
-        const notification = JSON.parse(e.data);
+    // Shared live connection; reloading on (re)open catches anything missed while it was down.
+    return subscribeToNotifications({
+      onNotification: (notification) =>
         setUnread((prev) =>
           prev.some((n) => n.id === notification.id) ? prev : [notification, ...prev]
-        );
-      } catch (err) {
-        console.error("Failed to parse notification", err);
-      }
+        ),
+      onOpen: fetchUnread,
     });
-
-    // Reload on (re)connect: events sent while the stream was down are lost.
-    es.addEventListener("open", fetchUnread);
-
-    return () => es.close();
   }, [fetchUnread]);
 
   // Fallback for when the stream cannot be established at all (proxy, offline).

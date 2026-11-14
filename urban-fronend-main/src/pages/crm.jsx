@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/api";
 import { loadProducts as fetchProductCatalog } from "../api/referenceData";
 import { publishNotification } from "../utils/notificationBus.js";
+import { subscribeToNotifications } from "../utils/notificationStream";
 import {
   FiPlus,
   FiChevronLeft,
@@ -85,22 +86,10 @@ export default function CRM() {
 
   // ── SSE: subscribe to live notifications ────────────────────────────────────
   useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    if (!token) return;
-
-    const base = api.defaults.baseURL || "";
-    const es = new EventSource(
-      `${base}/api/v1/notifications/subscribe?access_token=${encodeURIComponent(token)}`
-    );
-
-    es.addEventListener("notification", (e) => {
-      try {
-        const notification = JSON.parse(e.data);
-
+    return subscribeToNotifications({
+      onNotification: (notification) => {
         setToasts((prev) =>
-          prev.some((t) => t.id === notification.id)
-            ? prev
-            : [...prev, notification]
+          prev.some((t) => t.id === notification.id) ? prev : [...prev, notification]
         );
 
         try {
@@ -112,16 +101,8 @@ export default function CRM() {
         setTimeout(() => {
           setToasts((prev) => prev.filter((t) => t.id !== notification.id));
         }, 8000);
-      } catch (err) {
-        console.error("Failed to parse SSE notification", err);
-      }
+      },
     });
-
-    es.onerror = () => {
-      console.warn("SSE connection lost, will retry automatically");
-    };
-
-    return () => es.close();
   }, []);
 
   // ── Fetch leads ─────────────────────────────────────────────────────────────
