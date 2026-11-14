@@ -100,6 +100,10 @@ export default function Staff() {
   const [permLoading, setPermLoading] = useState(false);
   const [permSaving, setPermSaving] = useState(false);
   const [permSuccess, setPermSuccess] = useState("");
+  // Saving is only allowed once the current permissions were loaded
+  // successfully; otherwise an empty list would revoke everything.
+  const [permLoaded, setPermLoaded] = useState(false);
+  const [permError, setPermError] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -142,13 +146,17 @@ export default function Staff() {
     setPermStaff(staff);
     setGrantedPerms([]);
     setPermSuccess("");
+    setPermError("");
+    setPermLoaded(false);
     setPermLoading(true);
     try {
       const res = await api.get(`/api/v1/admin/permissions/${staff.id}`);
       const granted = res.data.filter(p => p.granted).map(p => p.permission);
       setGrantedPerms(granted);
+      setPermLoaded(true);
     } catch (e) {
       console.error("Failed to load permissions", e);
+      setPermError("Could not load this user's permissions. Close and try again; nothing was changed.");
     } finally {
       setPermLoading(false);
     }
@@ -158,6 +166,8 @@ export default function Staff() {
     setPermStaff(null);
     setGrantedPerms([]);
     setPermSuccess("");
+    setPermError("");
+    setPermLoaded(false);
   }
 
   function togglePerm(perm) {
@@ -167,6 +177,7 @@ export default function Staff() {
   }
 
   async function savePermissions() {
+    if (!permLoaded) return;
     try {
       setPermSaving(true);
       await api.put(`/api/v1/admin/permissions/${permStaff.id}`, grantedPerms);
@@ -485,9 +496,13 @@ export default function Staff() {
                 <div style={{ ...alertSuccess, marginBottom: 16 }}>{permSuccess}</div>
               )}
 
+              {permError && (
+                <div style={{ ...alertError, marginBottom: 16 }}>{permError}</div>
+              )}
+
               {permLoading ? (
                 <LoadingBlock label="Loading permissions..." />
-              ) : (
+              ) : !permLoaded ? null : (
                 Object.entries(PERMISSION_GROUPS).map(([group, perms]) => (
                   <div key={group} className="mb-5 last:mb-0">
                     <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{group}</div>
@@ -529,7 +544,7 @@ export default function Staff() {
 
             <div className="sticky bottom-0 flex justify-end gap-2.5 border-t border-slate-100 bg-white px-6 py-4">
               <button onClick={closePermissions} style={cancelBtn}>Close</button>
-              <button onClick={savePermissions} disabled={permSaving} style={saveBtn}>
+              <button onClick={savePermissions} disabled={permSaving || permLoading || !permLoaded} style={saveBtn}>
                 {permSaving ? "Saving..." : "Save Permissions"}
               </button>
             </div>
