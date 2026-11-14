@@ -14,10 +14,12 @@ import com.devsam.urbantrend.Errors.ResourceNotFoundException;
 import com.devsam.urbantrend.Repository.ExpenseRepository;
 import com.devsam.urbantrend.Repository.RequisitionRepository;
 import com.devsam.urbantrend.Repository.SalaryAdvanceRepository;
+import com.devsam.urbantrend.Roles.UserRole;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
@@ -68,10 +70,28 @@ public class RequisitionServiceImpl implements RequisitionService {
             throw new IllegalStateException("Only PENDING requisitions can be approved");
         }
 
+        ensureMayApprove(r, approver);
+
         r.setStatus(RequisitionStatus.APPROVED);
         r.setApprovedBy(approver);
+        r.setApprovedAt(OffsetDateTime.now());
 
         return requisitionRepository.save(r);
+    }
+
+    // Segregation of duties: nobody approves their own request, and a manager's
+    // requisition (which a manager could otherwise rubber-stamp for a peer) is only
+    // approved by an admin. An admin's own requisition has no higher authority to go to.
+    private void ensureMayApprove(Requisition requisition, User approver) {
+        User requester = requisition.getRequestedBy();
+        boolean approverIsAdmin = approver.getRole() == UserRole.ADMIN;
+
+        if (requester != null && requester.getId().equals(approver.getId()) && !approverIsAdmin) {
+            throw new AccessDeniedException("You cannot approve your own requisition");
+        }
+        if (requester != null && requester.getRole() == UserRole.MANAGER && !approverIsAdmin) {
+            throw new AccessDeniedException("Only an admin can approve a manager's requisition");
+        }
     }
 
     @Override
