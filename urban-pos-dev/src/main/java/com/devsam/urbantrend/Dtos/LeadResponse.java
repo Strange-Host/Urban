@@ -25,10 +25,17 @@ public class LeadResponse {
     private LocalDateTime created;
     private LocalDateTime followUpAt;
     private UUID convertedOrderId;
+    private UUID assignedToId;
+    private String assignedToName;
     private String productName;
     private String sellingPrice;
 
     public static LeadResponse from(Lead lead) {
+        var assignee = lead.getAssignedTo();
+        String assigneeName = assignee == null ? null
+                : ((assignee.getFirstName() == null ? "" : assignee.getFirstName()) + " "
+                + (assignee.getLastName() == null ? "" : assignee.getLastName())).trim();
+
         return LeadResponse.builder()
                 .id(lead.getId())
                 .name(lead.getName())
@@ -44,6 +51,8 @@ public class LeadResponse {
                 .created(lead.getCreated())
                 .followUpAt(lead.getFollowUpAt())
                 .convertedOrderId(lead.getConvertedOrderId())
+                .assignedToId(assignee == null ? null : assignee.getId())
+                .assignedToName(assigneeName)
                 .build();
     }
 }

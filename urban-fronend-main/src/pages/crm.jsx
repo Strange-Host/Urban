@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/api";
+import { useAuth } from "../auth/useAuth";
+import { getErrorDetail } from "../utils/errors";
 import { loadProducts as fetchProductCatalog } from "../api/referenceData";
 import { publishNotification } from "../utils/notificationBus.js";
 import { subscribeToNotifications } from "../utils/notificationStream";
@@ -27,6 +29,9 @@ import { AddLeadModal } from "./crm/AddLeadModal";
 export default function CRM() {
   const navigate = useNavigate();
   const { id: leadId } = useParams();
+  const { can } = useAuth();
+  const canAssign = can("CAN_ASSIGN_LEADS");
+  const [staffOptions, setStaffOptions] = useState([]);
 
   const [leads, setLeads] = useState([]);
   const [pageData, setPageData] = useState(null);
@@ -104,6 +109,35 @@ export default function CRM() {
       },
     });
   }, []);
+
+  // ── Staff list for the "assigned to" control (only for people who can assign) ──
+  useEffect(() => {
+    if (!canAssign) return;
+
+    api
+      .get("/api/v1/auth/users", { params: { size: 200, sort: "firstName,asc" } })
+      .then((res) =>
+        setStaffOptions(
+          (res.data?.content || [])
+            .filter((u) => u.role !== "ATTENDANT")
+            .map((u) => ({
+              id: u.id,
+              label: `${`${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email} (${u.role})`,
+            }))
+        )
+      )
+      .catch(() => setStaffOptions([]));
+  }, [canAssign]);
+
+  const handleAssign = async (lead, staffId) => {
+    try {
+      setError("");
+      await api.patch(`/api/v1/leads/${lead.id}/assign`, { staffId });
+      await fetchLeads();
+    } catch (e) {
+      setError(getErrorDetail(e, "Failed to assign the lead."));
+    }
+  };
 
   // ── Fetch leads ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -601,6 +635,9 @@ export default function CRM() {
         onFollowUpChange={handleFollowUpChange}
         onSaveFollowUp={handleSaveFollowUp}
         onConvert={openConvertModal}
+        canAssign={canAssign}
+        staffOptions={staffOptions}
+        onAssign={handleAssign}
       />
 
       <LeadTable
@@ -618,6 +655,9 @@ export default function CRM() {
         onFollowUpChange={handleFollowUpChange}
         onSaveFollowUp={handleSaveFollowUp}
         onConvert={openConvertModal}
+        canAssign={canAssign}
+        staffOptions={staffOptions}
+        onAssign={handleAssign}
       />
 
       {/* ── PAGINATION ── */}

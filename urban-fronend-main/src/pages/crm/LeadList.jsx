@@ -10,6 +10,36 @@ const statusColor = {
   CONVERTED: "bg-green-100 text-green-800",
 };
 
+// Who the lead is assigned to. Admins (and anyone granted "assign leads") can change it.
+function AssigneeControl({ lead, canAssign, staffOptions, onAssign }) {
+  if (!canAssign) {
+    return <span>{lead.assignedToName || "Unassigned"}</span>;
+  }
+
+  const known = staffOptions.some((option) => option.id === lead.assignedToId);
+
+  return (
+    <select
+      value={lead.assignedToId || ""}
+      onChange={(e) => e.target.value && onAssign(lead, e.target.value)}
+      className="w-full min-w-[140px] rounded-lg border border-slate-200 p-1.5 text-sm"
+      aria-label={`Assign ${lead.name}`}
+    >
+      <option value="" disabled>
+        Unassigned
+      </option>
+      {lead.assignedToId && !known && (
+        <option value={lead.assignedToId}>{lead.assignedToName || "Current assignee"}</option>
+      )}
+      {staffOptions.map((option) => (
+        <option key={option.id} value={option.id}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 const LEAD_STATUS_OPTIONS = ["NEW", "CONTACTED", "RESCHEDULED", "CANCELLED", "CONVERTED"];
 
 export function LeadMobileList({
@@ -27,6 +57,9 @@ export function LeadMobileList({
   onFollowUpChange,
   onSaveFollowUp,
   onConvert,
+  canAssign = false,
+  staffOptions = [],
+  onAssign = () => {},
 }) {
   return (
     <div className="lg:hidden space-y-3">
@@ -67,6 +100,16 @@ export function LeadMobileList({
               <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${badgeColor}`}>
                 {lead.status}
               </span>
+            </div>
+
+            <div className="mb-3 text-xs">
+              <div className="text-slate-500">Assigned to</div>
+              <AssigneeControl
+                lead={lead}
+                canAssign={canAssign}
+                staffOptions={staffOptions}
+                onAssign={onAssign}
+              />
             </div>
 
             {/* Product and Location */}
@@ -192,6 +235,9 @@ export function LeadTable({
   onFollowUpChange,
   onSaveFollowUp,
   onConvert,
+  canAssign = false,
+  staffOptions = [],
+  onAssign = () => {},
 }) {
   return (
     <div className={`${leads.length === 0 ? "hidden" : "hidden lg:block"} ui-card overflow-x-auto`}>
@@ -206,6 +252,7 @@ export function LeadTable({
             <th>Alt Phone No</th>
             <th>Extra Details</th>
             <th>Notes</th>
+            <th>Assigned to</th>
             <th>Status</th>
             <th>Follow-up Date</th>
             <th>Timestamp</th>
@@ -260,6 +307,15 @@ export function LeadTable({
                     Save
                   </button>
                 )}
+              </td>
+
+              <td>
+                <AssigneeControl
+                  lead={lead}
+                  canAssign={canAssign}
+                  staffOptions={staffOptions}
+                  onAssign={onAssign}
+                />
               </td>
 
               <td>
