@@ -6,6 +6,7 @@ import com.devsam.urbantrend.Dtos.RequisitionResponse;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Enum.RequisitionStatus;
 import com.devsam.urbantrend.Repository.UserRepository;
+import com.devsam.urbantrend.Roles.UserRole;
 import com.devsam.urbantrend.Service.Auth.RequisitionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -54,8 +55,20 @@ public class RequisitionController {
     @PreAuthorize("hasAuthority('CAN_VIEW_REQUISITIONS')")
     public Page<RequisitionResponse> all(
             @RequestParam(required = false) RequisitionStatus status,
-            Pageable pageable
+            Pageable pageable,
+            @AuthenticationPrincipal UserDetails userDetails
     ) {
+        User user = me(userDetails);
+
+        // Everyone has CAN_VIEW_REQUISITIONS by default, but the full list (which includes
+        // other people's salary advances) is for admins and managers. Everyone else sees
+        // only what they requested themselves.
+        boolean overseer = user.getRole() == UserRole.ADMIN || user.getRole() == UserRole.MANAGER;
+        if (!overseer) {
+            return requisitionService.getMine(user, pageable)
+                    .map(RequisitionResponse::from);
+        }
+
         return requisitionService.getAll(status, pageable)
                 .map(RequisitionResponse::from);
     }
