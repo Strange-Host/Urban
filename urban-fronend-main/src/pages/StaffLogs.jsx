@@ -20,12 +20,16 @@ import {
 } from "react-icons/fi";
 import { api } from "../api/api";
 import StatCard from "../components/StatCard";
+import { defaultRange } from "../utils/dateRange";
+
+// The backend returns at most this many (newest) logs per request.
+const BACKEND_LOG_LIMIT = 500;
 import { PageHeader, EmptyState, LoadingBlock } from "../components/ui";
 import { pageBtnStyle, alertError } from "../components/styles";
 
 export default function StaffLogs() {
-  const [from, setFrom] = useState("2026-02-01");
-  const [to, setTo] = useState("2026-12-29");
+  const [from, setFrom] = useState(() => defaultRange(30).from);
+  const [to, setTo] = useState(() => defaultRange(30).to);
 
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -184,6 +188,13 @@ export default function StaffLogs() {
           </button>
         </div>
       </PageHeader>
+
+      {logs.length >= BACKEND_LOG_LIMIT && (
+        <div style={{ ...alertError, marginBottom: 16 }}>
+          Showing only the newest {BACKEND_LOG_LIMIT} actions in this range. Narrow the dates
+          to see older activity; the totals below cover these {BACKEND_LOG_LIMIT} only.
+        </div>
+      )}
 
       {/* Stats */}
       <div className="mb-6 grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
