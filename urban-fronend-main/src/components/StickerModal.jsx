@@ -31,7 +31,7 @@ const TITLES = {
 
 const LAYOUT_HINTS = {
   A4: "24 stickers per A4 sheet",
-  ROLL: "One 50×30mm label per page (thermal printer)",
+  ROLL: "One 60×40mm label per page (thermal printer)",
 };
 
 /**
