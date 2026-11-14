@@ -33,6 +33,11 @@ public class MessagingService {
 
         String phone = normalizePhone(customer.getPhone());
 
+        if (phone == null) {
+            log.warn("Paid SMS skipped for order {}: customer has no phone number", orderId);
+            return;
+        }
+
         String message = """
                 URBAN TRENDS ✅
                 Hi %s, we have received your payment of KES %s.
@@ -63,6 +68,11 @@ public class MessagingService {
                 .orElseThrow(() -> new RuntimeException("Customer not found"));
 
         String phone = normalizePhone(customer.getPhone());
+
+        if (phone == null) {
+            log.warn("Order-created SMS skipped for order {}: customer has no phone number", orderId);
+            return;
+        }
 
         String message = """
         URBAN TRENDS 
@@ -118,7 +128,9 @@ public class MessagingService {
     private String normalizePhone(String phone) {
         if (phone == null) return null;
 
-        phone = phone.trim();
+        // Strip spaces, dashes, dots and brackets typed by staff ("0712 345 678").
+        phone = phone.trim().replaceAll("[\\s\\-().]", "");
+        if (phone.isEmpty()) return null;
 
         if (phone.startsWith("0")) {
             return "254" + phone.substring(1);

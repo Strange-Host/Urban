@@ -1,20 +1,19 @@
 package com.devsam.urbantrend.Service.Auth;
 import com.devsam.urbantrend.Dtos.PaymentRequest;
 import com.devsam.urbantrend.Dtos.PaymentResponse;
-import com.devsam.urbantrend.Entity.Customer;
 import com.devsam.urbantrend.Entity.Order;
 import com.devsam.urbantrend.Entity.Payment;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Enum.OrderStatus;
 import com.devsam.urbantrend.Enum.PaymentMethod;
 import com.devsam.urbantrend.Enum.PaymentStatus;
+import com.devsam.urbantrend.Events.OrderPaidEvent;
 import com.devsam.urbantrend.Errors.ResourceNotFoundException;
-import com.devsam.urbantrend.Repository.CustomerRepository;
 import com.devsam.urbantrend.Repository.OrderRepository;
 import com.devsam.urbantrend.Repository.PaymentRepository;
 import com.devsam.urbantrend.Roles.UserRole;
-import com.devsam.urbantrend.Service.Auth.Messaging.SmsProvider;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -33,9 +32,8 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
-    private final CustomerRepository customerRepository;
     private final OrderService orderService;
-    private final SmsProvider smsProvider;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public PaymentResponse recordPayment(PaymentRequest request, User user) {
@@ -200,15 +198,9 @@ public class PaymentServiceImpl implements PaymentService {
         if (!wasFullyPaid && updated.getBalance() != null
                 && updated.getBalance().compareTo(BigDecimal.ZERO) <= 0) {
 
-            Customer customer = customerRepository.findById(order.getCustomerId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
-
-            smsProvider.sendSms(
-                    customer.getPhone(),
-                    "URBAN TRENDS: Hi " + customer.getName() +
-                            ", payment of KES " + payment.getAmount() +
-                            " received. Thank you for shopping with us."
-            );
+            // Sent after the transaction commits (and never inside it), so a slow or
+            // failing SMS gateway cannot hold locks or roll the payment back.
+            eventPublisher.publishEvent(new OrderPaidEvent(order.getId()));
         }
     }
 

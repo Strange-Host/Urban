@@ -5,11 +5,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,12 +33,28 @@ public class ZettatelSmsProvider implements SmsProvider {
     @Value("${zettatel.sender-id:}")
     private String senderId;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    // Bounded timeouts: an unresponsive SMS gateway must never hang a login or a
+    // request that happens to send a message.
+    private final RestTemplate restTemplate = buildRestTemplate();
+
+    private static RestTemplate buildRestTemplate() {
+        JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(
+                java.net.http.HttpClient.newBuilder()
+                        .connectTimeout(Duration.ofSeconds(5))
+                        .build());
+        factory.setReadTimeout(Duration.ofSeconds(10));
+        return new RestTemplate(factory);
+    }
 
     @Override
     public void sendSms(String phoneNumber, String message) {
 
         String formattedPhone = normalizeKenyanPhone(phoneNumber);
+
+        if (formattedPhone == null) {
+            log.warn("SMS not sent: missing or unrecognised phone number");
+            return;
+        }
 
         try {
 
@@ -74,7 +92,11 @@ public class ZettatelSmsProvider implements SmsProvider {
         }
     }
     private String normalizeKenyanPhone(String phone) {
-        phone = phone.trim();
+        if (phone == null) {
+            return null;
+        }
+        // Staff and customers type numbers like "0712 345 678" or "0712-345-678".
+        phone = phone.trim().replaceAll("[\\s\\-().]", "");
 
         if (phone.startsWith("0") && phone.length() == 10) {
             return "254" + phone.substring(1);
