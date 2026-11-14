@@ -33,8 +33,15 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public Product create(ProductRequest request, User user) {
 
-        if (request.getSku() != null &&
-                productRepository.existsBySku(request.getSku())) {
+        if (request.getCostPrice() == null) {
+            throw new IllegalArgumentException("Cost price is required");
+        }
+
+        // A blank SKU is "no SKU". Storing "" would collide with the unique constraint
+        // as soon as a second product without a SKU was added.
+        String sku = blankToNull(request.getSku());
+
+        if (sku != null && productRepository.existsBySku(sku)) {
             throw new IllegalArgumentException("SKU already exists");
         }
 
@@ -52,7 +59,7 @@ public class ProductServiceImpl implements ProductService {
 
         Product product = Product.builder()
                 .name(request.getName())
-                .sku(request.getSku())
+                .sku(sku)
                 .sellingPrice(request.getSellingPrice())
                 .costPrice(request.getCostPrice())
                 .category(category)
@@ -143,6 +150,14 @@ public class ProductServiceImpl implements ProductService {
                 .build();
     }
 
+    private static String blankToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
     private String staffName(User staff) {
         return fullName(staff.getFirstName(), staff.getLastName());
     }
@@ -164,10 +179,14 @@ public class ProductServiceImpl implements ProductService {
 
         Product product = getByProductId(id,user);
 
-        if (request.getSku() != null
-                && !request.getSku().isBlank()
-                && !request.getSku().equals(product.getSku())
-                && productRepository.existsBySku(request.getSku())) {
+        // null = leave the SKU alone; blank = clear it.
+        boolean skuProvided = request.getSku() != null;
+        String sku = blankToNull(request.getSku());
+
+        if (skuProvided
+                && sku != null
+                && !sku.equals(product.getSku())
+                && productRepository.existsBySku(sku)) {
             throw new IllegalArgumentException("SKU already exists");
         }
 
@@ -181,9 +200,16 @@ public class ProductServiceImpl implements ProductService {
         }
 
         product.setName(request.getName());
-        product.setSku(request.getSku());
+        if (skuProvided) {
+            product.setSku(sku);
+        }
         product.setSellingPrice(request.getSellingPrice());
-        product.setCostPrice(request.getCostPrice());
+
+        // Only an admin can see and change the cost. Any value sent by another role is
+        // ignored so editing a product can never overwrite the real cost.
+        if (user.getRole() == UserRole.ADMIN && request.getCostPrice() != null) {
+            product.setCostPrice(request.getCostPrice());
+        }
         if (category != null) {
             product.setCategory(category);
         }

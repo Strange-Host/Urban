@@ -1,6 +1,7 @@
 package com.devsam.urbantrend.Entity;
 
 import com.devsam.urbantrend.Enum.ProductStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -23,6 +24,10 @@ public class Product extends BaseEntity{
     @Column(nullable = false)
     private BigDecimal sellingPrice;
 
+    // Never serialised: Product entities are nested in order, inventory and product
+    // responses, which would leak margins to every role. Admins get the cost through
+    // AdminProductResponse only.
+    @JsonIgnore
     @Column(nullable = false)
     private BigDecimal costPrice;
 

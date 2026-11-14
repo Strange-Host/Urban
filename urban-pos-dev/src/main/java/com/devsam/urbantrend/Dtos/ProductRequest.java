@@ -1,5 +1,6 @@
 package com.devsam.urbantrend.Dtos;
 
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -16,9 +17,12 @@ public class ProductRequest {
     private String sku;
 
     @NotNull
+    @DecimalMin("0")
     private BigDecimal sellingPrice;
 
-    @NotNull
+    // Required when creating a product (checked in the service). On update only an admin
+    // may change it; other roles never see the cost, so they cannot send a correct value.
+    @DecimalMin("0")
     private BigDecimal costPrice;
 
     private UUID categoryId;

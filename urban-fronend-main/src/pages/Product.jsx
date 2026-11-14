@@ -21,7 +21,9 @@ import { loadCategories as fetchCategoryList, invalidateProducts } from "../api/
 import { useAuth } from "../auth/useAuth";
 
 export default function Products() {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
+  // Only admins see and change the cost price; the server ignores it for other roles.
+  const isAdmin = user?.role === "ADMIN";
   const [search, setSearch] = useState("");
 
   // Backend state
@@ -227,8 +229,8 @@ export default function Products() {
       return;
     }
 
-    if (!editingProduct.sellingPrice || !editingProduct.costPrice) {
-      alert("Please fill selling price and cost price.");
+    if (!editingProduct.sellingPrice || (isAdmin && !editingProduct.costPrice)) {
+      alert(isAdmin ? "Please fill selling price and cost price." : "Please fill the selling price.");
       return;
     }
 
@@ -240,7 +242,7 @@ export default function Products() {
         name: editingProduct.name,
         sku: editingProduct.sku,
         sellingPrice: Number(editingProduct.sellingPrice),
-        costPrice: Number(editingProduct.costPrice),
+        ...(isAdmin ? { costPrice: Number(editingProduct.costPrice) } : {}),
         categoryId: editingProduct.categoryId,
       });
 
@@ -353,7 +355,7 @@ export default function Products() {
               <div style={{ fontWeight: 600 }}>{p.name}</div>
               <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 13, color: "var(--text-muted)" }}>{p.sku}</div>
               <div style={{ fontWeight: 600 }}>{money(p.sellingPrice)}</div>
-              <div style={{ color: "var(--text-muted)" }}>{money(p.costPrice)}</div>
+              <div style={{ color: "var(--text-muted)" }}>{isAdmin ? money(p.costPrice) : "—"}</div>
               <div>
                 <span style={badgeStyle("indigo")}>{getCategoryName(p)}</span>
               </div>
@@ -573,14 +575,16 @@ export default function Products() {
                 style={inputStyle}
               />
 
-              <input
-                name="costPrice"
-                value={editingProduct.costPrice}
-                onChange={handleEditChange}
-                placeholder="Cost Price"
-                type="number"
-                style={inputStyle}
-              />
+              {isAdmin && (
+                <input
+                  name="costPrice"
+                  value={editingProduct.costPrice}
+                  onChange={handleEditChange}
+                  placeholder="Cost Price"
+                  type="number"
+                  style={inputStyle}
+                />
+              )}
 
               <select
                 name="categoryId"

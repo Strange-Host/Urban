@@ -35,6 +35,7 @@ public class OrderItem extends BaseEntity {
     private BigDecimal sellingPrice;
 
     @Column(name = "cost_price", nullable = false, precision = 12, scale = 2)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private BigDecimal costPrice;
 
     @Column(name = "line_total", nullable = false, precision = 14, scale = 2)
