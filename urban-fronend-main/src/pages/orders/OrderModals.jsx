@@ -553,10 +553,12 @@ export function ReceiptModal({ order, fallbackServedBy }) {
         </div>
 
         <div className="receipt-payment">
-          <div className="receipt-row">
-            <span>M-Pesa Paybill</span>
-            <strong>{MPESA_PAYBILL}</strong>
-          </div>
+          {MPESA_PAYBILL && (
+            <div className="receipt-row">
+              <span>M-Pesa Paybill</span>
+              <strong>{MPESA_PAYBILL}</strong>
+            </div>
+          )}
           <div className="receipt-row">
             <span>Account No</span>
             <strong>{order.accountNumber || "Use order number"}</strong>

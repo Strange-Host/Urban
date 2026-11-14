@@ -15,8 +15,8 @@ import { fetchOrders, scanBarcode, undoScan } from "../api/ordersApi";
 import { getErrorDetail } from "../api/stickersApi";
 import { useAuth } from "../auth/useAuth";
 import { printReceiptToUSB } from "../utils/printer";
+import { MPESA_PAYBILL } from "./orders/orderUtils";
 
-const MPESA_PAYBILL = "522522";
 
 const DUPLICATE_WINDOW_MS = 500;
 const monoFont = "ui-monospace, SFMono-Regular, Menlo, monospace";
