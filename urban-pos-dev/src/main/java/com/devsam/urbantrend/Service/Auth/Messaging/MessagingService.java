@@ -2,6 +2,7 @@ package com.devsam.urbantrend.Service.Auth.Messaging;
 import com.devsam.urbantrend.Entity.*;
 import com.devsam.urbantrend.Repository.CustomerRepository;
 import com.devsam.urbantrend.Repository.OrderRepository;
+import com.devsam.urbantrend.Service.Auth.SettingsService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +21,7 @@ public class MessagingService {
     private final OrderRepository orderRepository;
     private final CustomerRepository customerRepository;
     private final SmsProvider smsProvider;
+    private final SettingsService settingsService;
     private static final Logger log =
             LoggerFactory.getLogger(MessagingService.class);
 
@@ -74,17 +76,19 @@ public class MessagingService {
             return;
         }
 
-        String message = """
-        URBAN TRENDS 
-        Hi %s, we have received your order for %s and processed it successfully.
-        It will be delivered within the next 24 hours.
-        
-        
-        order payments are: 
-        paybill:    522533
-        Account number: %s
-        Thank you for choosing us.
-        """.formatted(customer.getName(), productName, order.getAccountNumber());
+        // The paybill is entered by an admin in Settings. If it has not been set the
+        // line is left out rather than telling customers a wrong number.
+        String paybill = settingsService.getMpesaPaybill();
+        String paybillLine = paybill.isBlank() ? "" : "paybill:    " + paybill + "\n";
+
+        String message = "URBAN TRENDS \n"
+                + "Hi " + customer.getName() + ", we have received your order for " + productName
+                + " and processed it successfully.\n"
+                + "It will be delivered within the next 24 hours.\n\n"
+                + "order payments are: \n"
+                + paybillLine
+                + "Account number: " + order.getAccountNumber() + "\n"
+                + "Thank you for choosing us.\n";
 
         log.info("📲 Sending ORDER CREATED SMS | Product: {} | Account: {} | Phone: {} | Message: {}",
                 productName,
