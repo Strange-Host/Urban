@@ -35,7 +35,7 @@ public class PermissionController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getAllStaff() {
 
-        List<User> staff = userRepository.findByRoleNot(UserRole.ADMIN);
+        List<User> staff = userRepository.findByRoleNotAndDeletedAtIsNull(UserRole.ADMIN);
 
         List<Map<String, Object>> result = staff.stream().map(user -> {
             List<String> granted = permissionService.getUserPermissions(user.getId())

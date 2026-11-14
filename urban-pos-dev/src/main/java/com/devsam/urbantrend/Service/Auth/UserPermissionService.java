@@ -3,6 +3,7 @@ package com.devsam.urbantrend.Service.Auth;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Entity.UserPermission;
 import com.devsam.urbantrend.Enum.Permission;
+import com.devsam.urbantrend.Errors.ResourceNotFoundException;
 import com.devsam.urbantrend.Repository.UserPermissionRepository;
 import com.devsam.urbantrend.Repository.UserRepository;
 import jakarta.transaction.Transactional;
@@ -11,8 +12,9 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -33,28 +35,44 @@ public class UserPermissionService {
     public void updateUserPermissions(UUID userId, List<String> grantedPermissions) {
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // ✅ Update existing rows instead of delete + re-insert
-        List<UserPermission> existing = permissionRepository.findByUserId(user.getId());
-
-        if (existing.isEmpty()) {
-            // First time — create all permissions from scratch
-            List<UserPermission> permissions = Arrays.stream(Permission.values())
-                    .map(p -> UserPermission.builder()
-                            .user(user)
-                            .permission(p)
-                            .granted(grantedPermissions.contains(p.name()))
-                            .build())
-                    .collect(Collectors.toList());
-            permissionRepository.saveAll(permissions);
-        } else {
-            // Already exist — just update the granted flag
-            existing.forEach(p ->
-                    p.setGranted(grantedPermissions.contains(p.getPermission().name()))
-            );
-            permissionRepository.saveAll(existing);
+        if (grantedPermissions == null) {
+            throw new IllegalArgumentException("A list of permissions is required");
         }
+
+        // A typo or an outdated client must not silently grant nothing.
+        for (String name : grantedPermissions) {
+            try {
+                Permission.valueOf(name);
+            } catch (IllegalArgumentException | NullPointerException e) {
+                throw new IllegalArgumentException("Unknown permission: " + name);
+            }
+        }
+
+        Map<Permission, UserPermission> existing = permissionRepository.findByUserId(user.getId())
+                .stream()
+                .collect(Collectors.toMap(UserPermission::getPermission, p -> p, (a, b) -> a));
+
+        // Every permission gets a row. Users created before a permission was added have no
+        // row for it, and updating only existing rows meant an admin could never grant it.
+        List<UserPermission> toSave = new ArrayList<>();
+        for (Permission permission : Permission.values()) {
+            boolean granted = grantedPermissions.contains(permission.name());
+
+            UserPermission row = existing.get(permission);
+            if (row == null) {
+                row = UserPermission.builder()
+                        .user(user)
+                        .permission(permission)
+                        .granted(granted)
+                        .build();
+            } else {
+                row.setGranted(granted);
+            }
+            toSave.add(row);
+        }
+        permissionRepository.saveAll(toSave);
 
         authCache.evict(user.getEmail());
     }
