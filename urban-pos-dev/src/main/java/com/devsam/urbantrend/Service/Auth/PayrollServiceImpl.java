@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import com.devsam.urbantrend.Errors.ResourceNotFoundException;
 
 @Service
 @RequiredArgsConstructor
@@ -37,7 +38,7 @@ public class PayrollServiceImpl implements PayrollService {
     public StaffPayrollResponse getStaffPayroll(UUID staffId, LocalDate from, LocalDate to) {
 
         User staff = userRepository.findById(staffId)
-                .orElseThrow(() -> new RuntimeException("Staff not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Staff not found"));
 
         long totalPaidOrders = 0;
         BigDecimal totalCommission = BigDecimal.ZERO;

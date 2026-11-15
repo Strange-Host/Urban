@@ -2,6 +2,7 @@ package com.devsam.urbantrend.Service.Auth;
 
 import com.devsam.urbantrend.Dtos.AuthResponse;
 import com.devsam.urbantrend.Dtos.LoginRequest;
+import com.devsam.urbantrend.Dtos.LogoutCheckRequest;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Repository.LogoutCheckRepository;
 import com.devsam.urbantrend.Repository.UserPermissionRepository;
@@ -106,6 +107,22 @@ class AuthServiceTest {
 
         assertThat(response.getAccessToken()).isEqualTo("access");
         assertThat(response.getRefreshToken()).isEqualTo("refresh");
+    }
+
+    @Test
+    void incompleteLogoutChecksAreClientErrorsNotServerErrors() {
+        // These used to be plain RuntimeExceptions, i.e. a 500 with a generic message.
+        LogoutCheckRequest missingReason = new LogoutCheckRequest();
+        missingReason.setOrdersDone(false);
+        missingReason.setParcelsDone(true);
+
+        assertThatThrownBy(() -> service.logoutCheckService(jane, missingReason))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Provide reason for incomplete orders");
+
+        assertThatThrownBy(() -> service.logoutCheckService(jane, new LogoutCheckRequest()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Orders completion status is required");
     }
 
     @Test

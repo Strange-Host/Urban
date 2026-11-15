@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
+import com.devsam.urbantrend.Errors.ResourceNotFoundException;
 
 @Service
 @Transactional
@@ -65,14 +66,14 @@ public class CustomerServiceImpl implements CustomerService{
     @Override
     public Customer getCustomerById(UUID id) {
         return customerRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Customer not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + id));
     }
 
     @Override
     @Transactional
     public void deleteCustomerById(UUID id) {
         if (!customerRepository.existsById(id)) {
-            throw new RuntimeException("Customer not found with id: " + id);
+            throw new ResourceNotFoundException("Customer not found with id: " + id);
         }
         customerRepository.deleteById(id);
     }

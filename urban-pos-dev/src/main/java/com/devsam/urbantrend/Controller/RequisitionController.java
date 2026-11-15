@@ -18,6 +18,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 @RestController
 @RequestMapping("/api/v1/requisitions")
@@ -29,7 +30,7 @@ public class RequisitionController {
 
     private User me(UserDetails ud) {
         return userRepository.findByEmailAndDeletedAtIsNull(ud.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
     }
 
     @PostMapping

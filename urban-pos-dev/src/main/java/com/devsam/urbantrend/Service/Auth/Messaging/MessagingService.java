@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static java.util.Arrays.stream;
+import com.devsam.urbantrend.Errors.ResourceNotFoundException;
 
 @Service
 @RequiredArgsConstructor
@@ -28,10 +29,10 @@ public class MessagingService {
     public void sendOrderPaidSms(UUID orderId) {
 
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
         Customer customer = customerRepository.findById(order.getCustomerId())
-                .orElseThrow(() -> new RuntimeException("Customer not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
 
         String phone = normalizePhone(customer.getPhone());
 
@@ -57,7 +58,7 @@ public class MessagingService {
     public void sendOrderCreatedSms(UUID orderId) {
 
         Order order = orderRepository.findByIdWithItemsAndProducts(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
         Optional<String> firstProductName = order.getItems().stream()
                 .map(OrderItem::getProduct)
                 .filter(Objects::nonNull)
@@ -67,7 +68,7 @@ public class MessagingService {
         String productName = firstProductName.orElse("Unknown");
 
         Customer customer = customerRepository.findById(order.getCustomerId())
-                .orElseThrow(() -> new RuntimeException("Customer not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
 
         String phone = normalizePhone(customer.getPhone());
 

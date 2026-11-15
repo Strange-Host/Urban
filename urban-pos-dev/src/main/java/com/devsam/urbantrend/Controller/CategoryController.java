@@ -16,6 +16,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 @RequestMapping("/api/v1/category")
 @RestController
@@ -32,7 +33,7 @@ public class CategoryController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
         return categoryService.addCategory(categoryRequest, user);
     }
 
@@ -59,7 +60,7 @@ public class CategoryController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
         return categoryService.updateCategory(id, categoryRequest, user);
     }
 
@@ -70,7 +71,7 @@ public class CategoryController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
         categoryService.deleteCategory(id, user);
     }
 }

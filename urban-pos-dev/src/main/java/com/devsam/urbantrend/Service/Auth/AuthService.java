@@ -217,7 +217,7 @@ public class AuthService {
     public void logout(String email) {
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         user.setRefreshToken(null);
         user.setRefreshTokenExpiry(null);
@@ -265,21 +265,21 @@ public class AuthService {
 
         // 🔐 Validation
         if (request.getOrdersDone() == null) {
-            throw new RuntimeException("Orders completion status is required");
+            throw new IllegalArgumentException("Orders completion status is required");
         }
 
         if (request.getParcelsDone() == null) {
-            throw new RuntimeException("Parcels dispatch status is required");
+            throw new IllegalArgumentException("Parcels dispatch status is required");
         }
 
         if (Boolean.FALSE.equals(request.getOrdersDone()) &&
                 (request.getOrdersReason() == null || request.getOrdersReason().isBlank())) {
-            throw new RuntimeException("Provide reason for incomplete orders");
+            throw new IllegalArgumentException("Provide reason for incomplete orders");
         }
 
         if (Boolean.FALSE.equals(request.getParcelsDone()) &&
                 (request.getParcelsReason() == null || request.getParcelsReason().isBlank())) {
-            throw new RuntimeException("Provide reason for undispatched parcels");
+            throw new IllegalArgumentException("Provide reason for undispatched parcels");
         }
 
         // 🧹 Clean inputs

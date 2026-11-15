@@ -16,6 +16,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 @RestController
 @RequestMapping("/api/v1/stickers")
@@ -34,7 +35,7 @@ public class StickerController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
         return pdf(stickerService.restockWithStickers(request, layout, user));
     }
 

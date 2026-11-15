@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.UUID;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 @RestController
 @RequestMapping("/api/v1/orders")
@@ -143,6 +144,6 @@ public class OrderController {
 
     private User getUser(UserDetails userDetails) {
         return userRepository.findByEmailAndDeletedAtIsNull(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
     }
 }

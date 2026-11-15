@@ -27,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 @RestController
 @RequestMapping("/api/v1/leads")
@@ -162,7 +163,7 @@ public class LeadController {
     ) throws Exception {
 
         User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         if (request.getName() == null || request.getName().isBlank()) {
             return ResponseEntity.badRequest().body("Name is required");
@@ -225,7 +226,7 @@ public class LeadController {
     ) {
 
         User user = userRepository.findByEmailAndDeletedAtIsNull(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         return ResponseEntity.ok(leadService.getAll(status, pageable, user));
     }
@@ -238,7 +239,7 @@ public class LeadController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         leadService.requireAccess(id, user);
         leadConversionService.convertLead(id, request, user);
@@ -269,7 +270,7 @@ public class LeadController {
         }
 
         User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         leadConversionService.assignLeadToStaff(id, request.getStaffId());
 
@@ -298,7 +299,7 @@ public class LeadController {
         String followUpAt = body.get("followUpAt");
 
         User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         leadService.requireAccess(id, user);
         leadService.updateStatus(id, status, followUpAt);
@@ -324,7 +325,7 @@ public class LeadController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User user = userRepository.findByEmailAndDeletedAtIsNull(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         leadService.requireAccess(id, user);
         leadService.updateLead(id, body);

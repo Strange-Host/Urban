@@ -25,6 +25,7 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import com.devsam.urbantrend.Errors.ResourceNotFoundException;
 
 @Service
 @RequiredArgsConstructor
@@ -41,10 +42,10 @@ public class LeadConversionService {
     @Transactional
     public void convertLead(Long leadId, ConvertLeadRequest request, User staffUser) {
         Lead lead = leadRepository.findById(leadId)
-                .orElseThrow(() -> new RuntimeException("Lead not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Lead not found"));
 
         if ("CONVERTED".equalsIgnoreCase(lead.getStatus())) {
-            throw new RuntimeException("Lead already converted");
+            throw new IllegalStateException("Lead already converted");
         }
 
         Customer customer = customerRepository.findByPhone(lead.getPhoneNumber())
@@ -73,11 +74,11 @@ public class LeadConversionService {
         // validate chosen products
         for (OrderItemRequest item : orderItems) {
             if (item.getProductId() == null) {
-                throw new RuntimeException("Each order item must include a productId");
+                throw new IllegalArgumentException("Each order item must include a productId");
             }
 
             productRepository.findById(item.getProductId())
-                    .orElseThrow(() -> new RuntimeException("Product not found: " + item.getProductId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + item.getProductId()));
         }
 
         String deliveryCity = (request.getDeliveryCity() != null && !request.getDeliveryCity().isBlank())
@@ -95,10 +96,10 @@ public class LeadConversionService {
         Courier courier = null;
         if (request.getCourierId() != null) {
             courier = courierRepository.findById(request.getCourierId())
-                    .orElseThrow(() -> new RuntimeException("Courier not found: " + request.getCourierId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Courier not found: " + request.getCourierId()));
 
             if (!courier.isActive()) {
-                throw new RuntimeException("Selected courier is inactive: " + courier.getName());
+                throw new IllegalArgumentException("Selected courier is inactive: " + courier.getName());
             }
         }
 
@@ -153,10 +154,10 @@ public class LeadConversionService {
         final Logger log = LoggerFactory.getLogger(LeadConversionService.class);
 
         Lead lead = leadRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Lead not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Lead not found"));
 
         User staff = userRepository.findById(staffId)
-                .orElseThrow(() -> new RuntimeException("Staff not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Staff not found"));
 
         lead.setAssignedTo(staff);
         leadRepository.save(lead);

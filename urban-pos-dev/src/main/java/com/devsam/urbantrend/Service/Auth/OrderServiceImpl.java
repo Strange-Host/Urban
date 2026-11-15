@@ -543,7 +543,7 @@ public class OrderServiceImpl implements OrderService {
         Order order = getById(id);
 
         if (request.getDeliveryNotes() == null || request.getDeliveryNotes().isBlank()) {
-            throw new RuntimeException("Delivery notes cannot be empty");
+            throw new IllegalArgumentException("Delivery notes cannot be empty");
         }
 
         order.setDeliveryNotes(request.getDeliveryNotes());

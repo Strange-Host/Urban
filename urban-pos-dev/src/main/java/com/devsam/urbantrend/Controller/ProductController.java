@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import com.devsam.urbantrend.Errors.ResourceNotFoundException;
 
 @RestController
 @RequestMapping("/api/v1/products")
@@ -45,7 +47,7 @@ public class ProductController {
     @PreAuthorize("hasAuthority('CAN_VIEW_PRODUCTS')")
     public ResponseEntity<ProductLookupResponse> getByName(@RequestParam String name) {
         Product product = productRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(name.trim())
-                .orElseThrow(() -> new RuntimeException("Product not found: " + name));
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + name));
         return ResponseEntity.ok(ProductLookupResponse.from(product));
     }
 
@@ -104,7 +106,7 @@ public class ProductController {
 
     private User getUser(UserDetails userDetails) {
         return userRepository.findByEmailAndDeletedAtIsNull(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
     }
 
     @PostMapping("/{id}/assign-staff")

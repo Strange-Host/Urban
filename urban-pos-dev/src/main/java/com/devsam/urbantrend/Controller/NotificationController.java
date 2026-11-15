@@ -16,6 +16,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 @Slf4j
 @RestController
@@ -39,7 +40,7 @@ public class NotificationController {
 
         User user = userRepository.findByEmailAndDeletedAtIsNull(userDetails.getUsername())
                 .orElseThrow(() -> {
-                    return new RuntimeException("User not found");
+                    return new UsernameNotFoundException("User not found");
                 });
 
 
@@ -55,7 +56,7 @@ public class NotificationController {
 
         User user = userRepository.findByEmailAndDeletedAtIsNull(userDetails.getUsername())
                 .orElseThrow(() -> {
-                    return new RuntimeException("User not found");
+                    return new UsernameNotFoundException("User not found");
                 });
 
         List<Notification> unread = notificationRepository
@@ -103,7 +104,7 @@ public class NotificationController {
         User user = userRepository.findByEmailAndDeletedAtIsNull(userDetails.getUsername())
                 .orElseThrow(() -> {
                     log.error("❌ markAllRead failed — user not found: {}", userDetails.getUsername());
-                    return new RuntimeException("User not found");
+                    return new UsernameNotFoundException("User not found");
                 });
 
         long unreadCount = notificationRepository.countByUserIdAndIsReadFalse(user.getId());

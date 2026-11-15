@@ -13,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 @RestController
 @RequestMapping("/api/v1/orders/scan")
@@ -30,7 +31,7 @@ public class DispatchScanController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
         // Staff may only pack and dispatch their own orders.
         if (request.getOrderId() != null) {
             OrderAccess.requireAccess(user, orderService.getById(request.getOrderId()));
