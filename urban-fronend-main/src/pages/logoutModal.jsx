@@ -3,6 +3,7 @@ import { FiLogOut, FiX } from "react-icons/fi";
 import { api } from "../api/api";
 import { useNavigate } from "react-router-dom";
 import { Spinner } from "../components/ui";
+import { getErrorDetail } from "../utils/errors";
 
 function YesNo({ value, onChange }) {
   const opt = (v, label) => (
@@ -97,10 +98,7 @@ export default function LogoutModal({ isOpen, onClose }) {
       navigate("/login");
     } catch (error) {
       console.error("Logout request failed:", error);
-      alert(
-        error.response?.data?.message ||
-          "Logout failed. Check that the backend is running and try again."
-      );
+      alert(getErrorDetail(error, "Logout failed. Please try again."));
     } finally {
       setLoading(false);
     }

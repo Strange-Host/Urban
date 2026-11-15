@@ -21,6 +21,7 @@ import {
 import { api } from "../api/api";
 import StatCard from "../components/StatCard";
 import { defaultRange } from "../utils/dateRange";
+import { getErrorDetail } from "../utils/errors";
 
 // The backend returns at most this many (newest) logs per request.
 const BACKEND_LOG_LIMIT = 500;
@@ -59,7 +60,7 @@ export default function StaffLogs() {
       setError(
         err.response?.status === 403
           ? "You do not have permission to view staff logs."
-          : "Failed to load activity logs. Check the backend and try again."
+          : getErrorDetail(err, "Failed to load activity logs.")
       );
     } finally {
       setLoading(false);

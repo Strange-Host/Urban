@@ -17,6 +17,7 @@ import {
   alertError,
   pageBtnStyle,
 } from "../components/styles";
+import { getErrorDetail } from "../utils/errors";
 
 export default function Categories() {
   const [search, setSearch] = useState("");
@@ -71,7 +72,7 @@ export default function Categories() {
       setCategories(res.data.content || []);
     } catch (e) {
       if (signal?.aborted || e.code === "ERR_CANCELED") return;
-      setError("Failed to load categories.");
+      setError(getErrorDetail(e, "Failed to load categories."));
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -103,8 +104,8 @@ export default function Categories() {
       setPage(0);
       invalidateCategories();
       await loadCategories(0, search.trim());
-    } catch {
-      alert("Failed to add category.");
+    } catch (err) {
+      alert(getErrorDetail(err, "Failed to add category."));
     } finally {
       setLoading(false);
     }
@@ -140,8 +141,8 @@ export default function Categories() {
       closeEditModal();
       invalidateCategories();
       await loadCategories(page, search.trim());
-    } catch {
-      alert("Failed to update category.");
+    } catch (err) {
+      alert(getErrorDetail(err, "Failed to update category."));
     } finally {
       setLoading(false);
     }
@@ -155,8 +156,8 @@ export default function Categories() {
       await api.delete(`/api/v1/category/${id}`);
       invalidateCategories();
       await loadCategories(page, search.trim());
-    } catch {
-      alert("Failed to delete category.");
+    } catch (err) {
+      alert(getErrorDetail(err, "Failed to delete category."));
     } finally {
       setLoading(false);
     }

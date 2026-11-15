@@ -8,6 +8,7 @@ import { api } from "../api/api";
 import { useAuth } from "../auth/useAuth";
 import { FiArrowLeft, FiPrinter, FiCalendar, FiMail, FiUserX } from "react-icons/fi";
 import { LoadingBlock, EmptyState } from "../components/ui";
+import { getErrorDetail } from "../utils/errors";
 
 export default function StaffDetailsPage() {
   const { id } = useParams();
@@ -376,7 +377,7 @@ function ProductsHandledCard({ targetId }) {
         setHasChanges(false);
       } catch (err) {
         console.error("Error loading product assignments", err);
-        if (!cancelled) setError("Couldn't load products.");
+        if (!cancelled) setError(getErrorDetail(err, "Couldn't load products."));
       }
     }
 
@@ -409,7 +410,7 @@ function ProductsHandledCard({ targetId }) {
         setTotalElements(data.totalElements ?? (data.content || data || []).length);
       } catch (err) {
         console.error("Error loading products", err);
-        if (!cancelled) setError("Couldn't load products.");
+        if (!cancelled) setError(getErrorDetail(err, "Couldn't load products."));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -501,7 +502,7 @@ function ProductsHandledCard({ targetId }) {
       setHasChanges(false);
     } catch (err) {
       console.error("Error saving product assignments", err);
-      setError("Couldn't save product assignments. Please try again.");
+      setError(getErrorDetail(err, "Couldn't save product assignments. Please try again."));
     } finally {
       setSaving(false);
     }

@@ -13,4 +13,8 @@ describe("getErrorDetail", () => {
     expect(getErrorDetail({ response: { data: {} } }, "fallback")).toBe("fallback");
     expect(getErrorDetail(new Error("network"), "fallback")).toBe("fallback");
   });
+
+  it("explains network failures instead of showing the generic fallback", () => {
+    expect(getErrorDetail({ request: {} }, "Failed to load orders.")).toMatch(/Cannot reach the server/);
+  });
 });

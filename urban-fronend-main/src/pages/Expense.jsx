@@ -16,6 +16,7 @@ import {
   alertError,
   badgeStyle,
 } from "../components/styles";
+import { getErrorDetail } from "../utils/errors";
 
 export default function Expenses() {
   const [loading, setLoading] = useState(false);
@@ -60,7 +61,7 @@ export default function Expenses() {
       setExpenses(data);
     } catch (e) {
       console.log(e);
-      setError("Failed to load expenses.");
+      setError(getErrorDetail(e, "Failed to load expenses."));
     } finally {
       setLoading(false);
     }
@@ -97,7 +98,7 @@ export default function Expenses() {
       await loadExpenses();
     } catch (e) {
       console.log(e);
-      setError("Failed to add expense.");
+      setError(getErrorDetail(e, "Failed to add expense."));
     } finally {
       setLoading(false);
     }

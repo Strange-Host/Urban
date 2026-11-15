@@ -231,7 +231,7 @@ export default function Orders() {
     } catch (e) {
       if (signal?.aborted || e.code === "ERR_CANCELED") return;
       console.log(e);
-      setError("Failed to load orders. Check backend, token, and CORS.");
+      setError(getErrorDetail(e, "Failed to load orders."));
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -460,7 +460,7 @@ export default function Orders() {
     } catch (e) {
       console.log(e);
       setError(getErrorDetail(e, "Failed to create order. Check backend + customer endpoint."));
-      alert("Failed to create order. Check console.");
+      alert(getErrorDetail(e, "Failed to create order."));
     } finally {
       setLoading(false);
     }
@@ -493,8 +493,8 @@ export default function Orders() {
       alert("Order status updated!");
     } catch (e) {
       console.log(e);
-      setError("Failed to update status.");
-      alert("Failed to update status. check your inventory");
+      setError(getErrorDetail(e, "Failed to update status."));
+      alert(getErrorDetail(e, "Failed to update status."));
     } finally {
       setLoading(false);
     }
@@ -532,9 +532,7 @@ export default function Orders() {
       alert("Cash payment recorded successfully.");
     } catch (e) {
       console.error("Could not record cash payment:", e);
-      setCashPaymentError(
-        e.response?.data?.message || "Failed to record cash payment. Check your payment permission and backend."
-      );
+      setCashPaymentError(getErrorDetail(e, "Failed to record cash payment."));
     } finally {
       setRecordingCashPayment(false);
     }
@@ -570,7 +568,7 @@ export default function Orders() {
     } catch (e) {
       console.log(e);
       setNoteError("Failed to update delivery notes.");
-      alert("Failed to update notes. Check console.");
+      alert(getErrorDetail(e, "Failed to update notes."));
     } finally {
       setLoading(false);
     }

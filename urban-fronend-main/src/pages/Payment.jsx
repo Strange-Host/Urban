@@ -3,6 +3,7 @@ import { FiCreditCard, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { api } from "../api/api"; // adjust path if needed
 import { PageHeader, SearchInput, EmptyState, LoadingBlock } from "../components/ui";
 import { tableCard, alertError, pageBtnStyle } from "../components/styles";
+import { getErrorDetail } from "../utils/errors";
 
 export default function Payments() {
   const [activeTab, setActiveTab] = useState("All Payments");
@@ -54,7 +55,7 @@ export default function Payments() {
     } catch (e) {
       if (signal?.aborted || e.code === "ERR_CANCELED") return;
       console.log(e);
-      setError("Failed to load payments. Check backend, token, and CORS.");
+      setError(getErrorDetail(e, "Failed to load payments."));
     } finally {
       if (!signal?.aborted) setLoading(false);
     }

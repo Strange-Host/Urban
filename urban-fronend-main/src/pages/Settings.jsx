@@ -10,12 +10,8 @@ import {
   tableCard,
 } from "../components/styles";
 import { isValidPaybill } from "../utils/paybill";
+import { getErrorDetail } from "../utils/errors";
 import { setCachedMpesaPaybill } from "../utils/settings";
-
-function errorText(error, fallback) {
-  const data = error?.response?.data;
-  return (typeof data?.detail === "string" && data.detail) || fallback;
-}
 
 export default function Settings() {
   const [paybill, setPaybill] = useState("");
@@ -31,7 +27,7 @@ export default function Settings() {
         if (active) setPaybill(String(settings?.mpesaPaybill ?? ""));
       })
       .catch((e) => {
-        if (active) setError(errorText(e, "Could not load settings."));
+        if (active) setError(getErrorDetail(e, "Could not load settings."));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -62,7 +58,7 @@ export default function Settings() {
           : "Paybill cleared. Receipts and SMS will not show a paybill until you set one."
       );
     } catch (e) {
-      setError(errorText(e, "Could not save the paybill."));
+      setError(getErrorDetail(e, "Could not save the paybill."));
     } finally {
       setSaving(false);
     }

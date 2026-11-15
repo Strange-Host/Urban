@@ -25,6 +25,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import { getErrorDetail } from "../utils/errors";
 
 function toDateInput(date) {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -189,7 +190,7 @@ export default function Dashboard() {
       if (e.response?.status === 403) {
         setError("You do not have permission to view all dashboard data.");
       } else {
-        setError("Failed to load dashboard data.");
+        setError(getErrorDetail(e, "Failed to load dashboard data."));
       }
     } finally {
       setLoading(false);

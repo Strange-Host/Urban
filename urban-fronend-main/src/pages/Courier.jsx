@@ -18,6 +18,7 @@ import {
   alertError,
   badgeStyle,
 } from "../components/styles";
+import { getErrorDetail } from "../utils/errors";
 
 export default function Couriers() {
   const [search, setSearch] = useState("");
@@ -79,7 +80,7 @@ export default function Couriers() {
       setCouriers(res.data.content || []);
     } catch (e) {
       if (signal?.aborted || e.code === "ERR_CANCELED") return;
-      setError("Failed to load couriers.");
+      setError(getErrorDetail(e, "Failed to load couriers."));
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -115,7 +116,7 @@ export default function Couriers() {
       setPage(0);
       await loadCouriers(0, !showInactive, search.trim());
     } catch (e) {
-      alert(e.response?.data?.message || "Failed to add courier.");
+      alert(getErrorDetail(e, "Failed to add courier."));
     } finally {
       setLoading(false);
     }
@@ -153,7 +154,7 @@ export default function Couriers() {
       closeEditModal();
       await loadCouriers(page, !showInactive, search.trim());
     } catch (e) {
-      alert(e.response?.data?.message || "Failed to update courier.");
+      alert(getErrorDetail(e, "Failed to update courier."));
     } finally {
       setLoading(false);
     }
@@ -166,8 +167,8 @@ export default function Couriers() {
       setLoading(true);
       await api.delete(`/api/v1/couriers/${id}`);
       await loadCouriers(page, !showInactive, search.trim());
-    } catch {
-      alert("Failed to deactivate courier.");
+    } catch (err) {
+      alert(getErrorDetail(err, "Failed to deactivate courier."));
     } finally {
       setLoading(false);
     }

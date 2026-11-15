@@ -19,6 +19,7 @@ import {
 import { api } from "../api/api";
 import { loadCategories as fetchCategoryList, invalidateProducts } from "../api/referenceData";
 import { useAuth } from "../auth/useAuth";
+import { getErrorDetail } from "../utils/errors";
 
 export default function Products() {
   const { can, user } = useAuth();
@@ -103,7 +104,7 @@ export default function Products() {
     } catch (e) {
       if (signal?.aborted || e.code === "ERR_CANCELED") return;
       console.log(e);
-      setError("Failed to load products. Check backend, token, and CORS.");
+      setError(getErrorDetail(e, "Failed to load products."));
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -211,7 +212,7 @@ export default function Products() {
       if (e.response?.status === 403) {
         setError("You don't have permission to add product.");
       } else {
-        setError("Failed to add product. Please try again.");
+        setError(getErrorDetail(e, "Failed to add product. Please try again."));
       }
     } finally {
       setLoading(false);
@@ -254,7 +255,7 @@ export default function Products() {
       if (e.response?.status === 403) {
         setError("You don't have permission to edit product.");
       } else {
-        setError("Failed to update product. Please try again.");
+        setError(getErrorDetail(e, "Failed to update product. Please try again."));
       }
     } finally {
       setLoading(false);
@@ -274,7 +275,7 @@ export default function Products() {
       await loadProducts(page, search);
     } catch (e) {
       console.log(e);
-      alert("Failed to delete product. Check console.");
+      alert(getErrorDetail(e, "Failed to delete product."));
     } finally {
       setLoading(false);
     }

@@ -8,5 +8,10 @@ export function getErrorDetail(error, fallback = "Something went wrong.") {
   if (typeof data?.detail === "string" && data.detail.trim()) return data.detail;
   if (typeof data?.message === "string" && data.message.trim()) return data.message;
 
+  // Request was sent but nothing came back: offline, DNS, CORS or the server is down.
+  if (error && !error.response && error.request) {
+    return "Cannot reach the server. Check your connection and try again.";
+  }
+
   return fallback;
 }

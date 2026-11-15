@@ -16,6 +16,7 @@ import {
 import { api } from "../api/api"; // adjust path if needed
 import { useAuth } from "../auth/useAuth";
 import StickerModal from "../components/StickerModal";
+import { getErrorDetail } from "../utils/errors";
 
 export default function Inventory() {
   const [activeTab, setActiveTab] = useState("All Inventory");
@@ -92,7 +93,7 @@ export default function Inventory() {
     } catch (e) {
       if (signal?.aborted || e.code === "ERR_CANCELED") return;
       console.log(e);
-      setError("Failed to load products/inventory.");
+      setError(getErrorDetail(e, "Failed to load products/inventory."));
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -198,7 +199,7 @@ export default function Inventory() {
       await loadLowStock();
     } catch (e) {
       console.log(e);
-      alert("Restock failed.");
+      alert(getErrorDetail(e, "Restock failed."));
     } finally {
       setLoading(false);
     }
@@ -224,7 +225,7 @@ export default function Inventory() {
       await loadLowStock();
     } catch (e) {
       console.log(e);
-      alert("Reduce failed.");
+      alert(getErrorDetail(e, "Reduce failed."));
     } finally {
       setLoading(false);
     }

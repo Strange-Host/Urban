@@ -4,6 +4,7 @@ import { FiArrowLeft, FiBriefcase, FiUser, FiSend, FiCheckCircle, FiAlertCircle 
 import { createRequisition } from "../api/requisitionApi";
 import { PageHeader, Spinner } from "../components/ui";
 import { inputStyle, labelStyle, primaryBtn, secondaryBtn, alertError, alertSuccess } from "../components/styles";
+import { getErrorDetail } from "../utils/errors";
 
 const REQUISITION_TYPES = [
   {
@@ -60,11 +61,7 @@ export default function Requisition() {
       setAmountRequested("");
     } catch (err) {
       console.log(err);
-      const msg =
-        err?.response?.data?.message ||
-        err?.response?.data ||
-        "Failed to create requisition.";
-      setError(typeof msg === "string" ? msg : "Failed to create requisition.");
+      setError(getErrorDetail(err, "Failed to create requisition."));
     } finally {
       setLoading(false);
     }

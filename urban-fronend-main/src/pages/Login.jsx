@@ -9,6 +9,7 @@ import AuthShell, {
   authButtonClass,
 } from "../components/AuthShell";
 import { Spinner } from "../components/ui";
+import { getErrorDetail } from "../utils/errors";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -50,12 +51,7 @@ export default function Login() {
       // Redirect to OTP verification
       navigate("/verify-otp");
     } catch (err) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.response?.data ||
-        "Login failed. Check your credentials.";
-
-      setError(typeof msg === "string" ? msg : "Login failed.");
+      setError(getErrorDetail(err, "Login failed. Check your credentials."));
     } finally {
       setLoading(false);
     }

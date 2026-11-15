@@ -35,6 +35,7 @@ import {
   alertSuccess,
   badgeStyle,
 } from "../components/styles";
+import { getErrorDetail } from "../utils/errors";
 
 const PERMISSION_GROUPS = {
   "CRM / Leads":  ["CAN_VIEW_LEADS","CAN_CREATE_LEADS","CAN_UPDATE_LEAD_STATUS","CAN_CONVERT_LEADS"],
@@ -136,7 +137,7 @@ export default function Staff() {
       setStaffList(res.data.content || []);
     } catch (e) {
       if (signal?.aborted || e.code === "ERR_CANCELED") return;
-      setError("Failed to load staff.");
+      setError(getErrorDetail(e, "Failed to load staff."));
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -225,8 +226,8 @@ export default function Staff() {
       setPage(0);
       invalidateStaff();
       await loadStaff(0, search.trim());
-    } catch {
-      alert("Failed to add staff.");
+    } catch (err) {
+      alert(getErrorDetail(err, "Failed to add staff."));
     } finally {
       setLoading(false);
     }
@@ -239,8 +240,8 @@ export default function Staff() {
       await api.delete(`/api/v1/auth/user/${id}`);
       invalidateStaff();
       await loadStaff(page, search.trim());
-    } catch {
-      alert("Delete failed.");
+    } catch (err) {
+      alert(getErrorDetail(err, "Delete failed."));
     } finally {
       setLoading(false);
     }

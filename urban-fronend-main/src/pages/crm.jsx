@@ -182,7 +182,7 @@ export default function CRM() {
       setPageData(res.data);
     } catch (err) {
       console.error(err);
-      setError("Failed to load leads");
+      setError(getErrorDetail(err, "Failed to load leads"));
     }
   };
 
@@ -203,7 +203,7 @@ export default function CRM() {
       fetchLeads();
     } catch (err) {
       console.error("Status update failed", err);
-      alert("Failed to update lead status");
+      alert(getErrorDetail(err, "Failed to update lead status"));
     }
   };
 
@@ -232,7 +232,7 @@ export default function CRM() {
       fetchLeads();
     } catch (err) {
       console.error("Failed to save notes", err);
-      alert("Failed to save notes");
+      alert(getErrorDetail(err, "Failed to save notes"));
     }
   };
 
@@ -499,11 +499,11 @@ export default function CRM() {
       fetchLeads();
     } catch (err) {
       console.error(err);
-      const errorMsg = err.response?.data?.message || err.message;
-      if (errorMsg && errorMsg.includes("product") && errorMsg.includes("not")) {
+      const errorMsg = getErrorDetail(err, "Conversion failed");
+      if (/product/i.test(errorMsg) && /not/i.test(errorMsg)) {
         alert(`The product "${selectedLead.formName}" is not available in your inventory`);
       } else {
-        alert("Conversion failed");
+        alert(errorMsg);
       }
     } finally {
       setConverting(false);
@@ -536,7 +536,7 @@ export default function CRM() {
       }, 4000);
     } catch (err) {
       console.error("Failed to create lead", err);
-      alert(err.response?.data?.message || "Failed to create lead");
+      alert(getErrorDetail(err, "Failed to create lead"));
     } finally {
       setSavingLead(false);
     }

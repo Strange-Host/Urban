@@ -4,6 +4,7 @@ import { FiAlertCircle, FiArrowLeft, FiShield } from "react-icons/fi";
 import { api } from "../api/api";
 import AuthShell, { AuthError, authLabelClass, authButtonClass } from "../components/AuthShell";
 import { Spinner } from "../components/ui";
+import { getErrorDetail } from "../utils/errors";
 
 export default function OTPVerification() {
   const navigate = useNavigate();
@@ -50,12 +51,7 @@ export default function OTPVerification() {
 
       navigate("/dashboard");
     } catch (err) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.response?.data ||
-        "OTP verification failed.";
-
-      setError(typeof msg === "string" ? msg : "OTP verification failed.");
+      setError(getErrorDetail(err, "OTP verification failed."));
     } finally {
       setLoading(false);
     }

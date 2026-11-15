@@ -10,6 +10,7 @@ import { FiPlus, FiCheck, FiX, FiDollarSign, FiClipboard, FiChevronLeft, FiChevr
 import { PageHeader, EmptyState, LoadingBlock } from "../components/ui";
 import { primaryBtn, pageBtnStyle, tableCard, alertError } from "../components/styles";
 import { useAuth } from "../auth/useAuth";
+import { getErrorDetail } from "../utils/errors";
 
 export default function RequisitionList() {
   const navigate = useNavigate();
@@ -49,7 +50,7 @@ export default function RequisitionList() {
       setRequisitions(res.content || []);
     } catch (e) {
       console.error(e);
-      setError("Failed to load requisitions. Check backend and token.");
+      setError(getErrorDetail(e, "Failed to load requisitions."));
     } finally {
       setLoading(false);
     }
@@ -64,7 +65,7 @@ export default function RequisitionList() {
       alert("Requisition approved.");
     } catch (e) {
       console.error(e);
-      alert("Failed to approve requisition.");
+      alert(getErrorDetail(e, "Failed to approve requisition."));
     } finally {
       setLoading(false);
     }
@@ -80,7 +81,7 @@ export default function RequisitionList() {
       alert("Requisition rejected.");
     } catch (e) {
       console.error(e);
-      alert("Failed to reject requisition.");
+      alert(getErrorDetail(e, "Failed to reject requisition."));
     } finally {
       setLoading(false);
     }
@@ -95,7 +96,7 @@ export default function RequisitionList() {
       alert("Requisition marked as paid.");
     } catch (e) {
       console.error(e);
-      alert("Failed to mark requisition as paid.");
+      alert(getErrorDetail(e, "Failed to mark requisition as paid."));
     } finally {
       setLoading(false);
     }
