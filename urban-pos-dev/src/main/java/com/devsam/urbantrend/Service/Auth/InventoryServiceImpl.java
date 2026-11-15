@@ -26,8 +26,29 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     public Inventory getInventoryByProduct(UUID productId) {
-        return inventoryRepository.findByProductId(productId)
+        Inventory inventory = inventoryRepository.findByProductId(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory not found"));
+        return withProduct(inventory);
+    }
+
+    private Inventory withProduct(Inventory inventory) {
+        return inventoryRepository.findWithProductById(inventory.getId()).orElse(inventory);
+    }
+
+    private static void requireProductAndQuantity(InventoryRequest request, String action) {
+        if (request == null || request.getProductId() == null) {
+            throw new IllegalArgumentException("productId is required");
+        }
+        if (request.getQuantity() == null || request.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException(action + " quantity must be greater than zero");
+        }
+    }
+
+    private static IllegalStateException insufficient(Inventory inventory, BigDecimal needed) {
+        String name = inventory.getProduct() != null ? inventory.getProduct().getName() : "this product";
+        return new IllegalStateException("Insufficient stock for " + name + ": "
+                + inventory.getQuantity().stripTrailingZeros().toPlainString() + " available, "
+                + needed.stripTrailingZeros().toPlainString() + " needed");
     }
 
     @Override
@@ -42,14 +63,15 @@ public class InventoryServiceImpl implements InventoryService {
         //     throw new AccessDeniedException("Only ADMIN can restock inventory");
         // }
 
-        if (request.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Restock quantity must be greater than zero");
-        }
+        requireProductAndQuantity(request, "Restock");
+
+        // A deleted product cannot be restocked (it used to get stock silently).
+        Product liveProduct = productRepository.findByIdAndDeletedAtIsNull(request.getProductId())
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
 
         Inventory inventory = inventoryRepository.findByProductIdForUpdate(request.getProductId())
                 .orElseGet(() -> {
-                    Product product = productRepository.findById(request.getProductId())
-                            .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+                    Product product = liveProduct;
 
                     return inventoryRepository.save(
                             Inventory.builder()
@@ -73,28 +95,26 @@ public class InventoryServiceImpl implements InventoryService {
             inventory.setReorderLevel(request.getReorderLevel());
         }
 
-        return inventoryRepository.save(inventory);
+        return withProduct(inventoryRepository.save(inventory));
     }
 
     @Override
     public Inventory reduce(InventoryRequest request) {
 
-        if (request.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Reduce quantity must be greater than zero");
-        }
+        requireProductAndQuantity(request, "Reduce");
 
         Inventory inventory = inventoryRepository.findByProductIdForUpdate(request.getProductId())
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory not found"));
 
         if (inventory.getQuantity().compareTo(request.getQuantity()) < 0) {
-            throw new IllegalStateException("Insufficient stock");
+            throw insufficient(inventory, request.getQuantity());
         }
 
         inventory.setQuantity(
                 inventory.getQuantity().subtract(request.getQuantity())
         );
 
-        return inventoryRepository.save(inventory);
+        return withProduct(inventoryRepository.save(inventory));
     }
 
     @Override
@@ -109,7 +129,7 @@ public class InventoryServiceImpl implements InventoryService {
         inventoryRepository.findByProductIdForUpdate(request.getProductId())
                 .ifPresent(inventory -> {
                     if (inventory.getQuantity().compareTo(request.getQuantity()) < 0) {
-                        throw new IllegalStateException("Insufficient stock");
+                        throw insufficient(inventory, request.getQuantity());
                     }
 
                     inventory.setQuantity(

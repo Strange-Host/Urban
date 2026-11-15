@@ -19,6 +19,8 @@ public interface StockUnitRepository extends JpaRepository<StockUnit, UUID> {
 
     List<StockUnit> findByBatchIdOrderBySerialAsc(UUID batchId);
 
+    List<StockUnit> findByOrderId(UUID orderId);
+
     List<StockUnit> findByOrderIdAndStatus(UUID orderId, StockUnitStatus status);
 
     long countByOrderIdAndProduct_Id(UUID orderId, UUID productId);

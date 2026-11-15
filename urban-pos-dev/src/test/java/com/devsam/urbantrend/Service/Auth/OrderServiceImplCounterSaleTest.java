@@ -16,6 +16,7 @@ import com.devsam.urbantrend.Repository.OrderItemRepository;
 import com.devsam.urbantrend.Repository.OrderRepository;
 import com.devsam.urbantrend.Repository.PaymentRepository;
 import com.devsam.urbantrend.Repository.ProductRepository;
+import com.devsam.urbantrend.Repository.StockUnitRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,6 +49,7 @@ class OrderServiceImplCounterSaleTest {
     @Mock private PayrollService payrollService;
     @Mock private CourierRepository courierRepository;
     @Mock private PaymentRepository paymentRepository;
+    @Mock private StockUnitRepository stockUnitRepository;
 
     private OrderServiceImpl service;
     private User cashier;
@@ -56,7 +58,7 @@ class OrderServiceImplCounterSaleTest {
     @BeforeEach
     void setUp() {
         service = new OrderServiceImpl(orderRepository, orderItemRepository, productRepository,
-                inventoryService, customerRepository, payrollService, courierRepository, paymentRepository);
+                inventoryService, customerRepository, payrollService, courierRepository, paymentRepository, stockUnitRepository);
 
         cashier = new User();
         cashier.setId(UUID.randomUUID());

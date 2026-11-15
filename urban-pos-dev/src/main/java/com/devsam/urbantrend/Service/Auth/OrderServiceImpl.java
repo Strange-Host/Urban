@@ -5,6 +5,7 @@ import com.devsam.urbantrend.Entity.*;
 import com.devsam.urbantrend.Enum.OrderStatus;
 import com.devsam.urbantrend.Enum.OrderType;
 import com.devsam.urbantrend.Enum.PaymentStatus;
+import com.devsam.urbantrend.Enum.StockUnitStatus;
 import com.devsam.urbantrend.Errors.ResourceNotFoundException;
 import com.devsam.urbantrend.Repository.*;
 import com.devsam.urbantrend.generator.OrderReferenceGenerator;
@@ -40,6 +41,7 @@ public class OrderServiceImpl implements OrderService {
     private final PayrollService payrollService;
     private final CourierRepository courierRepository;
     private final PaymentRepository paymentRepository;
+    private final StockUnitRepository stockUnitRepository;
 
     private static final List<OrderStatus> REVENUE_STATUSES =
             Arrays.stream(OrderStatus.values())
@@ -280,6 +282,12 @@ public class OrderServiceImpl implements OrderService {
             addInventoryForOrder(saved.getId());
         }
 
+        // Sticker units tied to the order go back on the shelf, otherwise a cancelled order
+        // keeps its packed units locked and a returned parcel cannot be scanned again.
+        if (status == OrderStatus.CANCELLED || status == OrderStatus.RETURNED_GOOD) {
+            releaseStockUnits(saved.getId());
+        }
+
         boolean isNowReturnedGood = status == OrderStatus.RETURNED_GOOD;
         boolean wasAlreadyReturnedGood = oldStatus == OrderStatus.RETURNED_GOOD;
 
@@ -288,6 +296,21 @@ public class OrderServiceImpl implements OrderService {
         }
 
         return saved;
+    }
+
+    private void releaseStockUnits(UUID orderId) {
+        List<StockUnit> units = stockUnitRepository.findByOrderId(orderId);
+
+        for (StockUnit unit : units) {
+            unit.setStatus(StockUnitStatus.IN_STOCK);
+            unit.setOrderId(null);
+            unit.setScannedAt(null);
+            unit.setScannedBy(null);
+        }
+
+        if (!units.isEmpty()) {
+            stockUnitRepository.saveAll(units);
+        }
     }
 
     private boolean isDispatched(OrderStatus status) {

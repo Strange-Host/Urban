@@ -25,12 +25,28 @@ public interface InventoryRepository extends JpaRepository<Inventory, UUID> {
         JOIN FETCH i.product p
         LEFT JOIN FETCH p.category
         LEFT JOIN FETCH p.assignedStaff
+        WHERE p.deletedAt IS NULL
     """)
     List<Inventory> findAllWithProduct();
 
+    // The product is loaded up front so the entity can be returned from the controller after
+    // the transaction ended (open-in-view is off); a lazy product proxy cannot be serialised.
     @Query("""
         SELECT i FROM Inventory i
-        WHERE i.quantity <= i.reorderLevel
+        JOIN FETCH i.product p
+        LEFT JOIN FETCH p.category
+        LEFT JOIN FETCH p.assignedStaff
+        WHERE i.id = :id
+    """)
+    Optional<Inventory> findWithProductById(@Param("id") UUID id);
+
+    @Query("""
+        SELECT i FROM Inventory i
+        JOIN FETCH i.product p
+        LEFT JOIN FETCH p.category
+        LEFT JOIN FETCH p.assignedStaff
+        WHERE p.deletedAt IS NULL
+          AND i.quantity <= i.reorderLevel
     """)
     List<Inventory> findLowStock();
 }
