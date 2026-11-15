@@ -8,7 +8,6 @@ import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Enum.OrderType;
 import com.devsam.urbantrend.Events.OrderCreatedEvent;
 import com.devsam.urbantrend.Repository.CourierRepository;
-import com.devsam.urbantrend.Repository.CustomerRepository;
 import com.devsam.urbantrend.Repository.LeadRepository;
 import com.devsam.urbantrend.Repository.ProductRepository;
 import com.devsam.urbantrend.Repository.UserRepository;
@@ -33,7 +32,7 @@ public class LeadConversionService {
 
     private final LeadRepository leadRepository;
     private final ProductRepository productRepository;
-    private final CustomerRepository customerRepository;
+    private final CustomerService customerService;
     private final OrderService orderService;
     private final ApplicationEventPublisher eventPublisher;
     private final UserRepository userRepository;
@@ -48,14 +47,10 @@ public class LeadConversionService {
             throw new IllegalStateException("Lead already converted");
         }
 
-        Customer customer = customerRepository.findByPhone(lead.getPhoneNumber())
-                .orElseGet(() -> customerRepository.save(
-                        Customer.builder()
-                                .name(lead.getName())
-                                .phone(lead.getPhoneNumber())
-                                .city_town(lead.getLocation())
-                                .build()
-                ));
+        // Matches the customer in any phone spelling; a lead with no phone (e.g. Shopify)
+        // gets its own customer instead of being merged into a shared "UNKNOWN" one.
+        Customer customer = customerService.findOrCreate(
+                lead.getName(), lead.getPhoneNumber(), null, lead.getLocation());
 
         List<OrderItemRequest> orderItems = new ArrayList<>();
 

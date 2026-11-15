@@ -4,12 +4,15 @@ package com.devsam.urbantrend.Service.Auth;
 import com.devsam.urbantrend.Dtos.CustomerRequest;
 import com.devsam.urbantrend.Entity.Customer;
 import com.devsam.urbantrend.Repository.CustomerRepository;
+import com.devsam.urbantrend.Util.PhoneNumbers;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 import com.devsam.urbantrend.Errors.ResourceNotFoundException;
 
@@ -22,60 +25,80 @@ public class CustomerServiceImpl implements CustomerService{
 
     @Override
     public Customer addCustomer(CustomerRequest request) {
-        String phone = request.getPhone() == null ? null : request.getPhone().trim();
-        if (phone != null && phone.isEmpty()) {
-            phone = null;
-        }
+        return findOrCreate(request.getName(), request.getPhone(), request.getEmail(), request.getCity_town());
+    }
 
-        if (phone != null) {
-            Customer existing = customerRepository.findAllByPhone(phone)
-                    .stream()
+    @Override
+    public Customer findOrCreate(String name, String phone, String email, String city) {
+        String canonicalPhone = PhoneNumbers.normalize(phone);
+
+        if (canonicalPhone != null) {
+            List<Customer> matches = customerRepository.findAllByPhoneIn(PhoneNumbers.variants(phone));
+
+            // Prefer a live customer; fall back to a deleted one, which is brought back.
+            Customer existing = matches.stream()
+                    .filter(c -> c.getDeletedAt() == null)
                     .findFirst()
-                    .orElse(null);
+                    .orElse(matches.stream().findFirst().orElse(null));
 
             if (existing != null) {
-                if (request.getName() != null && !request.getName().isBlank()) {
-                    existing.setName(request.getName());
+                if (existing.getDeletedAt() != null) {
+                    existing.setDeletedAt(null);
+                    existing.setName(name);
                 }
-                if (request.getEmail() != null && !request.getEmail().isBlank()) {
-                    existing.setEmail(request.getEmail());
+                // A second person sharing a phone, or a typo, must not rename the customer.
+                if (isBlank(existing.getName())) {
+                    existing.setName(name);
                 }
-                if (request.getCity_town() != null && !request.getCity_town().isBlank()) {
-                    existing.setCity_town(request.getCity_town());
+                if (isBlank(existing.getEmail()) && !isBlank(email)) {
+                    existing.setEmail(email);
+                }
+                if (isBlank(existing.getCity_town()) && !isBlank(city)) {
+                    existing.setCity_town(city);
+                }
+                // Move old spellings (254..., spaces) to the canonical form.
+                if (!canonicalPhone.equals(existing.getPhone())
+                        && customerRepository.findAllByPhone(canonicalPhone).isEmpty()) {
+                    existing.setPhone(canonicalPhone);
                 }
                 return customerRepository.save(existing);
             }
         }
 
         Customer customer = Customer.builder()
-                .name(request.getName())
-                .phone(phone)
-                .email(request.getEmail())
-                .city_town(request.getCity_town())
+                .name(name)
+                .phone(canonicalPhone)
+                .email(email)
+                .city_town(city)
                 .build();
 
         return customerRepository.save(customer);
     }
 
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
 
     @Override
     public Page<Customer> getAllCustomers(Pageable pageable) {
-        return customerRepository.findAll(pageable);
+        return customerRepository.findAllByDeletedAtIsNull(pageable);
     }
 
     @Override
     public Customer getCustomerById(UUID id) {
-        return customerRepository.findById(id)
+        return customerRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + id));
     }
 
+    // Soft delete: orders keep pointing at the customer, and a hard delete failed with a
+    // foreign-key error as soon as the customer had any order.
     @Override
     @Transactional
     public void deleteCustomerById(UUID id) {
-        if (!customerRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Customer not found with id: " + id);
-        }
-        customerRepository.deleteById(id);
+        Customer customer = customerRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + id));
+        customer.setDeletedAt(LocalDateTime.now());
+        customerRepository.save(customer);
     }
 
 }
