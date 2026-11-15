@@ -145,7 +145,9 @@ public class ShopifyService {
 
             Lead lead = new Lead();
             lead.setName(name);
-            lead.setPhoneNumber(phone);
+            // "UNKNOWN" was only a placeholder while looking for a phone; storing it made every
+            // phoneless Shopify lead look like the same customer when converted.
+            lead.setPhoneNumber("UNKNOWN".equals(phone) ? null : phone);
             lead.setLocation(city);
             lead.setFormName(productName);
             lead.setStatus("NEW");

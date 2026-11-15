@@ -107,8 +107,11 @@ public class CourierServiceImpl implements CourierService {
 
         Courier saved = courierRepository.save(courier);
 
+        // Only parcels the courier has not collected yet go back to the pool. Dispatched,
+        // delivered and returned orders keep their courier: that is delivery history, and
+        // a parcel in transit is still with that courier.
         if (wasActive && !saved.isActive()) {
-            orderRepository.unassignCourier(saved.getId());
+            orderRepository.unassignCourierFromUndispatchedOrders(saved.getId());
         }
 
         return toResponse(saved);
@@ -119,7 +122,7 @@ public class CourierServiceImpl implements CourierService {
         Courier courier = getEntity(id);
         courier.setActive(false);
         courierRepository.save(courier);
-        orderRepository.unassignCourier(courier.getId());
+        orderRepository.unassignCourierFromUndispatchedOrders(courier.getId());
     }
 
     private Courier getEntity(UUID id) {

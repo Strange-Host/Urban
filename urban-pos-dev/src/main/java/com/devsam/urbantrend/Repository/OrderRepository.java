@@ -212,8 +212,9 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
         UPDATE Order o
         SET o.courierId = NULL, o.courierAssignedAt = NULL
         WHERE o.courierId = :courierId
+          AND o.orderStatus = com.devsam.urbantrend.Enum.OrderStatus.AWAITING_DISPATCH
     """)
-    int unassignCourier(@Param("courierId") UUID courierId);
+    int unassignCourierFromUndispatchedOrders(@Param("courierId") UUID courierId);
 
 
     boolean existsByAccountNumber(String fullAccount);

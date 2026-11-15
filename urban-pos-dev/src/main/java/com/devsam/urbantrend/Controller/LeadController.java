@@ -9,6 +9,7 @@ import com.devsam.urbantrend.Repository.ProductRepository;
 import com.devsam.urbantrend.Repository.UserRepository;
 import com.devsam.urbantrend.Service.Auth.LeadConversionService;
 import com.devsam.urbantrend.Service.Auth.LeadService;
+import com.devsam.urbantrend.Service.Auth.WpFormsFieldMapper;
 import com.devsam.urbantrend.Service.Auth.StaffLogService;
 import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -84,27 +85,7 @@ public class LeadController {
                 : null;
 
         if (fields != null) {
-            if (fields.containsKey("Name")) {
-                lead.setName(fields.get("Name").toString());
-            } else if (fields.containsKey("First") && fields.containsKey("Last")) {
-                lead.setName(fields.get("First") + " " + fields.get("Last"));
-            }
-            if (fields.containsKey("Phone Number")) {
-                lead.setPhoneNumber(fields.get("Phone Number").toString());
-            }
-            if (fields.containsKey("Alternative Phone Number")) {
-                lead.setAlternativePhoneNumber(fields.get("Alternative Phone Number").toString());
-            }
-            if (fields.containsKey("Location")) {
-                lead.setLocation(fields.get("Location").toString());
-            }
-            if(fields.containsKey("Additional information or any Enquiry. (e.g. exact address, number of pieces).")){
-                lead.setAdditionalInfo(fields.get("Additional information or any Enquiry. (e.g. exact address, number of pieces).").toString());
-            }
-
-            else if (fields.containsKey("Delivery County")) {
-                lead.setLocation(fields.get("Delivery County").toString());
-            }
+            WpFormsFieldMapper.apply(lead, fields);
 
             // Capture product variant fields (colors, sizes, materials, etc.)
             // Different WordPress forms use different labels for these, so we
