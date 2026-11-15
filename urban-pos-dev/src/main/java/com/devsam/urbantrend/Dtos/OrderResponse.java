@@ -1,6 +1,7 @@
 package com.devsam.urbantrend.Dtos;
 
 import com.devsam.urbantrend.Enum.OrderStatus;
+import com.devsam.urbantrend.Enum.OrderType;
 import lombok.Builder;
 import lombok.Data;
 
@@ -24,6 +25,11 @@ public class OrderResponse {
     private BigDecimal paidAmount;
     private String accountNumber;
     private BigDecimal balance;
+    private BigDecimal discount;
+    private BigDecimal deliveryFee;
+    private OrderType orderType;
+    private UUID courierId;
+    private LocalDateTime courierAssignedAt;
     private String deliveryCity;
     private String deliveryNotes;
     private String invoicePdfUrl;

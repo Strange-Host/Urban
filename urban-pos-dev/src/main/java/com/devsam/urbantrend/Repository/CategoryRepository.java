@@ -13,6 +13,8 @@ import java.util.UUID;
 public interface CategoryRepository extends JpaRepository<Category, UUID> {
     boolean existsByNameIgnoreCase(String name);
 
+    java.util.List<Category> findAllByNameIgnoreCase(String name);
+
     Optional<Category> findByIdAndDeletedAtIsNull(UUID id);
 
     Page<Category> findAllByDeletedAtIsNull(Pageable pageable);

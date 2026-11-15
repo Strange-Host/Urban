@@ -20,6 +20,8 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     boolean existsBySku(String sku);
 
+    boolean existsByCategory_IdAndDeletedAtIsNull(UUID categoryId);
+
     Optional<Product> findFirstByNameIgnoreCaseAndDeletedAtIsNull(String name);
 
     List<Product> findAllByDeletedAtIsNullAndAssignedStaff(User assignedStaff);

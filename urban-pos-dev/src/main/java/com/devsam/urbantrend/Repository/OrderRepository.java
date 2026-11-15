@@ -23,7 +23,8 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     @Query(
             value = """
         SELECT o.id FROM Order o
-        WHERE (:status IS NULL OR o.orderStatus = :status)
+        WHERE o.deletedAt IS NULL
+        AND (:status IS NULL OR o.orderStatus = :status)
         AND (:staffId IS NULL OR o.createdBy = :staffId OR o.assignedTo = :staffId)
         AND (:courierId IS NULL OR o.courierId = :courierId)
         AND (:hasQuery = false
@@ -37,7 +38,8 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     """,
             countQuery = """
         SELECT COUNT(o) FROM Order o
-        WHERE (:status IS NULL OR o.orderStatus = :status)
+        WHERE o.deletedAt IS NULL
+        AND (:status IS NULL OR o.orderStatus = :status)
         AND (:staffId IS NULL OR o.createdBy = :staffId OR o.assignedTo = :staffId)
         AND (:courierId IS NULL OR o.courierId = :courierId)
         AND (:hasQuery = false

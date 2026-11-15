@@ -407,6 +407,11 @@ public class OrderServiceImpl implements OrderService {
                             .totalAmount(order.getTotalAmount())
                             .paidAmount(order.getPaidAmount())
                             .balance(order.getBalance())
+                            .discount(order.getDiscount())
+                            .deliveryFee(order.getDeliveryFee())
+                            .orderType(order.getOrderType())
+                            .courierId(order.getCourierId())
+                            .courierAssignedAt(order.getCourierAssignedAt())
                             .deliveryCity(order.getDeliveryCity())
                             .deliveryNotes(order.getDeliveryNotes())
                             .invoicePdfUrl(order.getInvoicePdfUrl())
@@ -542,11 +547,9 @@ public class OrderServiceImpl implements OrderService {
     public Order updateNotes(UUID id, UpdateOrderNotesRequest request, User user) {
         Order order = getById(id);
 
-        if (request.getDeliveryNotes() == null || request.getDeliveryNotes().isBlank()) {
-            throw new IllegalArgumentException("Delivery notes cannot be empty");
-        }
-
-        order.setDeliveryNotes(request.getDeliveryNotes());
+        // An empty note clears it; staff need to be able to remove a note that is no longer true.
+        String notes = request.getDeliveryNotes();
+        order.setDeliveryNotes(notes == null || notes.isBlank() ? null : notes);
 
         return orderRepository.save(order);
     }

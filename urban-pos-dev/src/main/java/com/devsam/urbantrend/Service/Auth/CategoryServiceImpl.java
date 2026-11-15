@@ -5,6 +5,7 @@ import com.devsam.urbantrend.Entity.Category;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Errors.ResourceNotFoundException;
 import com.devsam.urbantrend.Repository.CategoryRepository;
+import com.devsam.urbantrend.Repository.ProductRepository;
 import com.devsam.urbantrend.Roles.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -19,17 +20,17 @@ import java.util.UUID;
 public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
+    private final ProductRepository productRepository;
 
     @Override
     public Category addCategory(CategoryRequest request, User user) {
 
 
-        if (categoryRepository.existsByNameIgnoreCase(request.getName())) {
-            throw new IllegalArgumentException("Category already exists");
-        }
+        String name = request.getName().trim();
+        ensureNameIsFree(name, null);
 
         Category category = Category.builder()
-                .name(request.getName())
+                .name(name)
                 .description(request.getDescription())
                 .build();
 
@@ -61,7 +62,10 @@ public class CategoryServiceImpl implements CategoryService {
 
         Category category = getCategoryById(id);
 
-        category.setName(request.getName());
+        String name = request.getName().trim();
+        ensureNameIsFree(name, id);
+
+        category.setName(name);
         category.setDescription(request.getDescription());
 
         return categoryRepository.save(category);
@@ -72,9 +76,43 @@ public class CategoryServiceImpl implements CategoryService {
 
 
         Category category = getCategoryById(id);
+
+        // Products keep pointing at a deleted category and then cannot be edited, so it
+        // has to be empty first.
+        if (productRepository.existsByCategory_IdAndDeletedAtIsNull(id)) {
+            throw new IllegalStateException(
+                    "This category still has products. Move or delete them before deleting the category.");
+        }
+
         category.setDeletedAt(java.time.LocalDateTime.now());
+        // The name column is unique, so a deleted category would block its name forever.
+        freeName(category);
 
         categoryRepository.save(category);
+    }
+
+    /**
+     * A live category with the same name (ignoring case) blocks it. Deleted ones from before
+     * names were freed on delete are renamed out of the way instead.
+     */
+    private void ensureNameIsFree(String name, UUID updatingId) {
+        for (Category other : categoryRepository.findAllByNameIgnoreCase(name)) {
+            if (other.getId().equals(updatingId)) {
+                continue;
+            }
+            if (other.getDeletedAt() == null) {
+                throw new IllegalArgumentException("Category already exists");
+            }
+            freeName(other);
+            categoryRepository.saveAndFlush(other);
+        }
+    }
+
+    private static void freeName(Category category) {
+        String suffix = " (deleted " + category.getId().toString().substring(0, 8) + ")";
+        if (!category.getName().endsWith(suffix)) {
+            category.setName(category.getName() + suffix);
+        }
     }
 
 }
