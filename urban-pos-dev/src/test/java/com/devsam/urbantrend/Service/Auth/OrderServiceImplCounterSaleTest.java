@@ -70,7 +70,7 @@ class OrderServiceImplCounterSaleTest {
         productId = UUID.randomUUID();
         product.setId(productId);
 
-        lenient().when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+        lenient().when(productRepository.findByIdAndDeletedAtIsNull(productId)).thenReturn(Optional.of(product));
         lenient().when(orderRepository.save(any(Order.class))).thenAnswer(call -> {
             Order saved = call.getArgument(0);
             saved.setId(UUID.randomUUID());
@@ -171,6 +171,32 @@ class OrderServiceImplCounterSaleTest {
         assertThatThrownBy(() -> service.create(request, cashier))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("only be recorded on counter sales");
+    }
+
+    @Test
+    void deletedProductsCannotBeSold() {
+        lenient().when(productRepository.findByIdAndDeletedAtIsNull(productId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.create(sale(OrderType.ONLINE, null), cashier))
+                .isInstanceOf(com.devsam.urbantrend.Errors.ResourceNotFoundException.class);
+    }
+
+    @Test
+    void inactiveProductsCannotBeSold() {
+        Product inactive = Product.builder()
+                .name("Retired shirt")
+                .sellingPrice(new BigDecimal("500.00"))
+                .costPrice(new BigDecimal("300.00"))
+                .status(com.devsam.urbantrend.Enum.ProductStatus.INACTIVE)
+                .build();
+        inactive.setId(productId);
+        lenient().when(productRepository.findByIdAndDeletedAtIsNull(productId)).thenReturn(Optional.of(inactive));
+
+        assertThatThrownBy(() -> service.create(sale(OrderType.ONLINE, null), cashier))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("inactive");
+
+        verify(orderRepository, never()).save(any());
     }
 
     @Test

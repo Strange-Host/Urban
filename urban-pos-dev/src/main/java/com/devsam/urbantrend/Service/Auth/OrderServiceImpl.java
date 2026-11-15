@@ -4,6 +4,7 @@ import com.devsam.urbantrend.Dtos.*;
 import com.devsam.urbantrend.Entity.*;
 import com.devsam.urbantrend.Enum.OrderStatus;
 import com.devsam.urbantrend.Enum.OrderType;
+import com.devsam.urbantrend.Enum.ProductStatus;
 import com.devsam.urbantrend.Enum.PaymentStatus;
 import com.devsam.urbantrend.Enum.StockUnitStatus;
 import com.devsam.urbantrend.Errors.ResourceNotFoundException;
@@ -78,8 +79,14 @@ public class OrderServiceImpl implements OrderService {
 
         for (OrderItemRequest itemReq : req.getItems()) {
 
-            Product product = productRepository.findById(itemReq.getProductId())
+            Product product = productRepository.findByIdAndDeletedAtIsNull(itemReq.getProductId())
                     .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+
+            // Deleted products are "not found" above; inactive ones are still on file but
+            // are not for sale.
+            if (product.getStatus() == ProductStatus.INACTIVE) {
+                throw new IllegalArgumentException("Product is inactive and cannot be sold: " + product.getName());
+            }
 
             if (itemReq.getQuantity() == null || itemReq.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalArgumentException("Quantity must be > 0");
@@ -139,7 +146,7 @@ public class OrderServiceImpl implements OrderService {
         List<OrderItem> savedItems = new java.util.ArrayList<>();
         for (OrderItemRequest itemReq : req.getItems()) {
 
-            Product product = productRepository.findById(itemReq.getProductId())
+            Product product = productRepository.findByIdAndDeletedAtIsNull(itemReq.getProductId())
                     .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
 
             BigDecimal lineTotal = product.getSellingPrice().multiply(itemReq.getQuantity());
