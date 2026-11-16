@@ -12,15 +12,22 @@ import {
   primaryBtn as saveBtn,
   tableCard,
   alertError,
+  pageBtnStyle,
 } from "../components/styles";
+import { stockBadgeStyle } from "../utils/stock";
 import { api } from "../api/api"; // adjust path if needed
 import { useAuth } from "../auth/useAuth";
 import StickerModal from "../components/StickerModal";
 import { getErrorDetail } from "../utils/errors";
 
+const PAGE_SIZE = 25;
+
 export default function Inventory() {
   const [activeTab, setActiveTab] = useState("All Inventory");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [lowStockError, setLowStockError] = useState("");
 
   // Backend state
   const [loading, setLoading] = useState(false);
@@ -71,7 +78,7 @@ export default function Inventory() {
       controller.abort();
     };
     // eslint-disable-next-line
-  }, [search]);
+  }, [search, page]);
 
   async function loadProducts(query = "", signal) {
     try {
@@ -80,8 +87,8 @@ export default function Inventory() {
 
       const res = await api.get("/api/v1/products", {
         params: {
-          page: 0,
-          size: 200,
+          page,
+          size: PAGE_SIZE,
           sort: "createdAt,desc",
           ...(query ? { query } : {}),
         },
@@ -90,6 +97,7 @@ export default function Inventory() {
 
       if (signal?.aborted) return;
       setProducts(res.data.content || []);
+      setTotalPages(Math.max(1, res.data.totalPages || 1));
     } catch (e) {
       if (signal?.aborted || e.code === "ERR_CANCELED") return;
       console.log(e);
@@ -136,8 +144,11 @@ export default function Inventory() {
         .filter((x) => x.id);
 
       setLowStock(normalized);
+      setLowStockError("");
     } catch (e) {
       console.log(e);
+      // Used to fail silently, leaving an empty tab that looked like "nothing is low".
+      setLowStockError(getErrorDetail(e, "Could not load the low-stock list."));
     }
   }
 
@@ -231,14 +242,8 @@ export default function Inventory() {
     }
   }
 
-  function stockBadge(stock) {
-    const qty = Number(stock);
-    if (isNaN(qty)) return { bg: "#f3f4f6", color: "#374151" };
-
-    if (qty <= 5) return { bg: "#fee2e2", color: "#991b1b" };
-    if (qty <= 15) return { bg: "#ffedd5", color: "#b45309" };
-
-    return { bg: "#dcfce7", color: "#166534" };
+  function stockBadge(stock, reorderLevel) {
+    return stockBadgeStyle(stock, reorderLevel);
   }
 
   const tableData = activeTab === "Low Stock" ? lowStock : products;
@@ -339,7 +344,10 @@ export default function Inventory() {
 
         <SearchInput
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(0);
+          }}
           placeholder="Search product..."
           className="inv-search w-full sm:w-72"
         />
@@ -347,6 +355,9 @@ export default function Inventory() {
 
       {/* Loading/Error */}
       {error && <div style={{ ...alertError, marginBottom: 16 }}>{error}</div>}
+      {activeTab === "Low Stock" && lowStockError && (
+        <div style={{ ...alertError, marginBottom: 16 }}>{lowStockError}</div>
+      )}
 
       {/* TABLE */}
       <div style={tableCard}>
@@ -373,7 +384,7 @@ export default function Inventory() {
             p.quantity !== undefined && p.quantity !== null
               ? p.quantity
               : getStock(p.id);
-          const badge = stockBadge(stock);
+          const badge = stockBadge(stock, p.reorderLevel ?? inventoryMap[p.id]?.reorderLevel);
 
           return (
             <React.Fragment key={p.id}>
@@ -487,6 +498,32 @@ export default function Inventory() {
         {loading && tableData.length === 0 && <LoadingBlock label="Loading inventory..." />}
         {!loading && tableData.length === 0 && (
           <EmptyState icon={FiArchive} title="No inventory found" message="Try a different tab or search term." />
+        )}
+
+        {activeTab !== "Low Stock" && totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3 text-sm text-slate-500">
+            <span>
+              Page {page + 1} of {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                style={pageBtnStyle}
+                disabled={page === 0 || loading}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                style={pageBtnStyle}
+                disabled={page + 1 >= totalPages || loading}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
