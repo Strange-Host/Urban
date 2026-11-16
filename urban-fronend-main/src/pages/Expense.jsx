@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FiPlus, FiRefreshCw, FiDollarSign, FiFileText } from "react-icons/fi";
 import { api } from "../api/api";
 import StatCard from "../components/StatCard";
@@ -15,8 +15,11 @@ import {
   tableCard,
   alertError,
   badgeStyle,
+  pageBtnStyle,
 } from "../components/styles";
 import { getErrorDetail } from "../utils/errors";
+
+const PAGE_SIZE = 20;
 
 export default function Expenses() {
   const [loading, setLoading] = useState(false);
@@ -24,6 +27,10 @@ export default function Expenses() {
 
   // list
   const [expenses, setExpenses] = useState([]);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  // Totals come from the server so they cover every expense, not just this page.
+  const [summary, setSummary] = useState({ total: 0, count: 0 });
 
   // modal
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -37,28 +44,32 @@ export default function Expenses() {
     referenceCode: "",
   });
 
-  const totalExpenses = useMemo(() => {
-    return expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
-  }, [expenses]);
-
   useEffect(() => {
-    loadExpenses();
+    loadExpenses(page);
     // eslint-disable-next-line
-  }, []);
+  }, [page]);
 
-  async function loadExpenses() {
+  async function loadSummary() {
+    try {
+      const res = await api.get("/api/v1/expenses/summary");
+      setSummary({ total: Number(res.data?.total || 0), count: Number(res.data?.count || 0) });
+    } catch (e) {
+      console.warn("Could not load expense totals", e);
+    }
+  }
+
+  async function loadExpenses(requestPage = 0) {
     try {
       setLoading(true);
       setError("");
 
-      // If your backend has pagination, update this
       const res = await api.get("/api/v1/expenses", {
-        params: { page: 0, size: 200, sort: "createdAt,desc" },
+        params: { page: requestPage, size: PAGE_SIZE, sort: "createdAt,desc" },
       });
 
-      // supports both Page and List response
-      const data = res.data?.content || res.data || [];
-      setExpenses(data);
+      setExpenses(res.data?.content || []);
+      setTotalPages(Math.max(1, res.data?.totalPages || 1));
+      loadSummary();
     } catch (e) {
       console.log(e);
       setError(getErrorDetail(e, "Failed to load expenses."));
@@ -95,7 +106,9 @@ export default function Expenses() {
         referenceCode: "",
       });
 
-      await loadExpenses();
+      // New expenses appear at the top of the first page.
+      if (page === 0) await loadExpenses(0);
+      else setPage(0);
     } catch (e) {
       console.log(e);
       setError(getErrorDetail(e, "Failed to add expense."));
@@ -126,8 +139,8 @@ export default function Expenses() {
 
       {/* Summary */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard title="Total Expenses" value={money(totalExpenses)} tone="red" icon={FiDollarSign} />
-        <StatCard title="Records" value={expenses.length.toLocaleString()} tone="slate" icon={FiFileText} />
+        <StatCard title="Total Expenses" value={money(summary.total)} tone="red" icon={FiDollarSign} />
+        <StatCard title="Records" value={summary.count.toLocaleString()} tone="slate" icon={FiFileText} />
       </div>
 
       {/* List */}
@@ -189,6 +202,32 @@ export default function Expenses() {
               ))}
             </div>
           </>
+        )}
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3 text-sm text-slate-500">
+            <span>
+              Page {page + 1} of {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                style={pageBtnStyle}
+                disabled={page === 0 || loading}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                style={pageBtnStyle}
+                disabled={page + 1 >= totalPages || loading}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

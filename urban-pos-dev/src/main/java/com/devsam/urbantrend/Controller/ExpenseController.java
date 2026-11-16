@@ -2,6 +2,7 @@ package com.devsam.urbantrend.Controller;
 
 import com.devsam.urbantrend.Dtos.ExpenseRequest;
 import com.devsam.urbantrend.Dtos.ExpenseResponse;
+import com.devsam.urbantrend.Dtos.ExpenseSummaryResponse;
 import com.devsam.urbantrend.Entity.Expense;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Errors.ResourceNotFoundException;
@@ -56,6 +57,12 @@ public class ExpenseController {
     public Page<ExpenseResponse> all(Pageable pageable) {
         return expenseRepository.findAllByDeletedAtIsNull(pageable)
                 .map(ExpenseResponse::from);
+    }
+
+    @GetMapping("/summary")
+    @PreAuthorize("hasAuthority('CAN_VIEW_EXPENSES')")
+    public ExpenseSummaryResponse summary() {
+        return new ExpenseSummaryResponse(expenseRepository.sumAll(), expenseRepository.countByDeletedAtIsNull());
     }
 
     @DeleteMapping("/{id}")
