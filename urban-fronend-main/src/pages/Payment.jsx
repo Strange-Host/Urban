@@ -1,11 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FiCreditCard, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { api } from "../api/api"; // adjust path if needed
+import { useAuth } from "../auth/useAuth";
+import { fetchUnmatchedPayments } from "../api/paymentsApi";
+import MatchPaymentModal from "./payments/MatchPaymentModal";
+import { paymentFlags } from "../utils/paymentMatching";
 import { PageHeader, SearchInput, EmptyState, LoadingBlock } from "../components/ui";
 import { tableCard, alertError, pageBtnStyle } from "../components/styles";
 import { getErrorDetail } from "../utils/errors";
 
 export default function Payments() {
+  const { can } = useAuth();
+  const canMatch = can("CAN_MATCH_PAYMENTS");
+  const [matching, setMatching] = useState(null);
   const [activeTab, setActiveTab] = useState("All Payments");
   const [search, setSearch] = useState("");
 
@@ -18,7 +25,8 @@ export default function Payments() {
   const [page, setPage] = useState(0);
   const size = 10;
 
-  const tabs = ["All Payments", "M-Pesa", "Cash", "Bank"];
+  const NEEDS_MATCHING = "Needs matching";
+  const tabs = ["All Payments", "M-Pesa", "Cash", "Bank", NEEDS_MATCHING];
   const tabMethod = { "M-Pesa": "MPESA", Cash: "CASH", Bank: "BANK" }[activeTab];
 
   useEffect(() => {
@@ -38,6 +46,14 @@ export default function Payments() {
     try {
       setLoading(true);
       setError("");
+
+      // Money that arrived without a usable account number waits here for a person.
+      if (activeTab === NEEDS_MATCHING) {
+        const unmatched = await fetchUnmatchedPayments(requestPage, size);
+        if (signal?.aborted) return;
+        setPageData(unmatched);
+        return;
+      }
 
       const res = await api.get("/api/v1/payments", {
         params: {
@@ -68,6 +84,9 @@ export default function Payments() {
   const normalized = useMemo(() => {
     return payments.map((p) => {
       return {
+        key: p.id,
+        raw: p,
+        flags: paymentFlags(p),
         id: p.transactionRef || String(p.id).slice(0, 8) + "...",
         customer: p.payerName || p.payerPhone || "-",
         method: mapMethod(p.method),
@@ -140,6 +159,10 @@ export default function Payments() {
     whiteSpace: "nowrap",
   });
 
+  function flagColor(tone) {
+    return tone === "danger" ? { bg: "#fee2e2", color: "#991b1b" } : { bg: "#fef3c7", color: "#92400e" };
+  }
+
   const cols = "1.1fr 1.6fr 1fr 1.1fr 1fr 1fr";
 
   return (
@@ -177,6 +200,7 @@ export default function Payments() {
           }}
           placeholder="Search by transaction ID, customer, phone..."
           className="w-full md:w-80"
+          disabled={activeTab === NEEDS_MATCHING}
         />
       </div>
 
@@ -212,14 +236,21 @@ export default function Payments() {
             const m = methodBadge(p.method);
 
             return (
-              <React.Fragment key={p.id}>
+              <React.Fragment key={p.key}>
                 {/* Desktop row */}
                 <div
                   className="ui-row hidden items-center border-b border-slate-100 text-sm md:grid"
                   style={{ gridTemplateColumns: cols, gap: 10, padding: "13px 16px" }}
                 >
                   <div className="truncate font-mono text-[13px] font-medium text-slate-700">{p.id}</div>
-                  <div className="truncate font-medium text-slate-800">{p.customer}</div>
+                  <div className="truncate font-medium text-slate-800">
+                    {p.customer}
+                    {p.flags.map((f) => (
+                      <span key={f.key} style={{ ...badge(flagColor(f.tone)), marginLeft: 6 }}>
+                        {f.label}
+                      </span>
+                    ))}
+                  </div>
                   <div>
                     <span style={badge(m)}>{p.method}</span>
                   </div>
@@ -245,8 +276,26 @@ export default function Payments() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     <span style={badge(m)}>{p.method}</span>
                     <span style={badge(s)}>{p.status}</span>
+                    {p.flags.map((f) => (
+                      <span key={f.key} style={badge(flagColor(f.tone))}>
+                        {f.label}
+                      </span>
+                    ))}
                   </div>
                 </div>
+
+                {p.raw.matched === false && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-amber-50 px-4 py-2 text-sm text-slate-700">
+                    <div className="min-w-0 flex-1 truncate">
+                      {p.raw.notes || "Not attached to any order."}
+                    </div>
+                    {canMatch && !p.raw.suspicious && (
+                      <button type="button" style={pageBtnStyle} onClick={() => setMatching(p.raw)}>
+                        Match to order
+                      </button>
+                    )}
+                  </div>
+                )}
               </React.Fragment>
             );
           })}
@@ -257,6 +306,17 @@ export default function Payments() {
             icon={FiCreditCard}
             title="No payments found"
             message={payments.length ? "Try a different tab or search term." : "Payments will show up here once received."}
+          />
+        )}
+
+        {matching && (
+          <MatchPaymentModal
+            payment={matching}
+            onClose={() => setMatching(null)}
+            onMatched={() => {
+              setMatching(null);
+              loadPayments(page, tabMethod, search.trim());
+            }}
           />
         )}
 
