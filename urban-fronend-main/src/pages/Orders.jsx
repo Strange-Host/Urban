@@ -104,6 +104,7 @@ export default function Orders() {
     deliveryNotes: "",
     assignedTo: "",
     discount: 0,
+    deliveryFee: 0,
   });
 
   // Counter sales are paid on the spot; lines allow a split such as cash + M-Pesa.
@@ -259,6 +260,7 @@ export default function Orders() {
       deliveryNotes: "",
       assignedTo: "",
       discount: 0,
+      deliveryFee: 0,
     });
 
     setCartItems([]);
@@ -386,6 +388,11 @@ export default function Orders() {
       return;
     }
 
+    if (Number(orderForm.deliveryFee || 0) < 0) {
+      alert("Delivery fee cannot be negative.");
+      return;
+    }
+
     const cartTotal = cartItems.reduce((sum, i) => {
       return sum + Number(i.sellingPrice || 0) * Number(i.quantity || 0);
     }, 0);
@@ -431,6 +438,8 @@ export default function Orders() {
         orderType: orderForm.orderType || "ONLINE",
         assignedTo: orderForm.assignedTo || null,
         discount: Number(orderForm.discount || 0),
+        deliveryFee:
+          orderForm.orderType === "ONLINE" ? Number(orderForm.deliveryFee || 0) : 0,
 
         deliveryCity:
           orderForm.orderType === "ONLINE" ? orderForm.deliveryCity : null,

@@ -14,6 +14,7 @@ import {
   niceStatus,
 } from "./orderUtils";
 import { useMpesaPaybill } from "../../utils/settings";
+import { orderTotals } from "./orderTotals";
 import {
   PAYMENT_METHODS,
   emptyPaymentLine,
@@ -52,7 +53,8 @@ export function AddOrderModal({
   onClose,
   onCreate,
 }) {
-  const grandTotal = Math.max(0, cartTotal - Number(orderForm.discount || 0));
+  const totals = orderTotals(cartTotal, orderForm.discount, orderForm.deliveryFee, orderForm.orderType);
+  const grandTotal = totals.grandTotal;
   const counterPayments = normalizeCounterPayments(paymentLines, grandTotal);
   const paidSoFar = counterPayments.reduce(
     (sum, p) => sum + (Number.isFinite(p.amount) ? p.amount : 0),
@@ -183,6 +185,21 @@ export function AddOrderModal({
           />
         </div>
 
+        {orderForm.orderType === "ONLINE" && (
+          <div style={{ marginBottom: 12 }}>
+            <label style={labelStyle}>Delivery fee (KES)</label>
+            <input
+              name="deliveryFee"
+              value={orderForm.deliveryFee}
+              onChange={onOrderChange}
+              placeholder="0"
+              type="number"
+              min="0"
+              style={inputStyle}
+            />
+          </div>
+        )}
+
         {/* Items */}
         <div style={{ ...sectionTitle, marginTop: 16 }}>
           Items
@@ -285,6 +302,20 @@ export function AddOrderModal({
               <div>{formatMoney(Number(orderForm.discount || 0))}</div>
             </div>
 
+            {orderForm.orderType === "ONLINE" && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginTop: 8,
+                  color: "#6b7280",
+                }}
+              >
+                <div>Delivery fee</div>
+                <div>{formatMoney(totals.deliveryFee)}</div>
+              </div>
+            )}
+
             <div
               style={{
                 display: "flex",
@@ -294,7 +325,7 @@ export function AddOrderModal({
               }}
             >
               <div>Grand Total</div>
-              <div>{formatMoney(Math.max(0, cartTotal - Number(orderForm.discount || 0)))}</div>
+              <div>{formatMoney(totals.grandTotal)}</div>
             </div>
           </div>
         )}
