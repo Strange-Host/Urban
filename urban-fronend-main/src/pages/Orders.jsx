@@ -4,6 +4,7 @@ import { loadProducts as fetchProductCatalog, loadStaff as fetchStaffList } from
 import { useAuth } from "../auth/useAuth";
 import { loadMpesaPaybill } from "../utils/settings";
 import { getErrorDetail } from "../utils/errors";
+import { canTakePayment, orderBalance, validatePaymentEntry } from "./orders/paymentEntry";
 import {
   emptyPaymentLine,
   normalizeCounterPayments,
@@ -82,6 +83,8 @@ export default function Orders() {
   const [editStatus, setEditStatus] = useState("AWAITING_DISPATCH");
   const [cashPaymentOrder, setCashPaymentOrder] = useState(null);
   const [cashPaymentAmount, setCashPaymentAmount] = useState("");
+  const [cashPaymentMethod, setCashPaymentMethod] = useState("CASH");
+  const [cashPaymentRef, setCashPaymentRef] = useState("");
   const [cashPaymentError, setCashPaymentError] = useState("");
   const [recordingCashPayment, setRecordingCashPayment] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -285,7 +288,10 @@ export default function Orders() {
 
   function openCashPaymentModal(order) {
     setCashPaymentOrder(order);
-    setCashPaymentAmount(Number(order.totalAmount || 0).toFixed(2));
+    // Default to what is still owed, not the order total (part-paid orders).
+    setCashPaymentAmount(orderBalance(order).toFixed(2));
+    setCashPaymentMethod("CASH");
+    setCashPaymentRef("");
     setCashPaymentError("");
   }
 
@@ -293,6 +299,7 @@ export default function Orders() {
     if (recordingCashPayment) return;
     setCashPaymentOrder(null);
     setCashPaymentAmount("");
+    setCashPaymentRef("");
     setCashPaymentError("");
   }
 
@@ -513,13 +520,12 @@ export default function Orders() {
     if (!cashPaymentOrder?.id) return;
 
     const amount = Number(cashPaymentAmount);
-    const orderTotal = Number(cashPaymentOrder.totalAmount || 0);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setCashPaymentError("Enter a payment amount greater than zero.");
-      return;
-    }
-    if (orderTotal > 0 && amount > orderTotal) {
-      setCashPaymentError("Payment amount cannot exceed the order total.");
+    const entryError = validatePaymentEntry(
+      { method: cashPaymentMethod, amount: cashPaymentAmount, reference: cashPaymentRef },
+      cashPaymentOrder
+    );
+    if (entryError) {
+      setCashPaymentError(entryError);
       return;
     }
 
@@ -529,8 +535,9 @@ export default function Orders() {
 
       await api.post("/api/v1/payments", {
         orderId: cashPaymentOrder.id,
-        method: "CASH",
+        method: cashPaymentMethod,
         amount,
+        transactionRef: cashPaymentRef.trim() || null,
         payerName: cashPaymentOrder.customerName || null,
         payerPhone: cashPaymentOrder.phoneNumber || null,
       });
@@ -538,10 +545,10 @@ export default function Orders() {
       setCashPaymentOrder(null);
       setCashPaymentAmount("");
       await loadOrders(page, statusFilter, search.trim());
-      alert("Cash payment recorded successfully.");
+      alert("Payment recorded successfully.");
     } catch (e) {
       console.error("Could not record cash payment:", e);
-      setCashPaymentError(getErrorDetail(e, "Failed to record cash payment."));
+      setCashPaymentError(getErrorDetail(e, "Failed to record payment."));
     } finally {
       setRecordingCashPayment(false);
     }
@@ -751,9 +758,9 @@ export default function Orders() {
                   </div>
 
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {can("CAN_CREATE_PAYMENTS") && ["DISPATCHED_UNPAID", "DELIVERED_UNPAID"].includes(o.orderStatus) && (
+                    {can("CAN_CREATE_PAYMENTS") && canTakePayment(o) && (
                       <button onClick={() => openCashPaymentModal(o)} style={cashPaymentBtn}>
-                        <FiDollarSign size={13} /> Record Cash
+                        <FiDollarSign size={13} /> Record payment
                       </button>
                     )}
                     <button onClick={() => openEditModal(o)} style={editBtn}>
@@ -817,9 +824,9 @@ export default function Orders() {
                   </div>
 
                   <div className="actions-row" style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
-                    {can("CAN_CREATE_PAYMENTS") && ["DISPATCHED_UNPAID", "DELIVERED_UNPAID"].includes(o.orderStatus) && (
+                    {can("CAN_CREATE_PAYMENTS") && canTakePayment(o) && (
                       <button onClick={() => openCashPaymentModal(o)} style={cashPaymentBtn}>
-                        <FiDollarSign size={13} /> Record Cash
+                        <FiDollarSign size={13} /> Record payment
                       </button>
                     )}
                     <button onClick={() => openEditModal(o)} style={editBtn}>
@@ -934,6 +941,10 @@ export default function Orders() {
           error={cashPaymentError}
           saving={recordingCashPayment}
           onAmountChange={setCashPaymentAmount}
+          method={cashPaymentMethod}
+          reference={cashPaymentRef}
+          onMethodChange={setCashPaymentMethod}
+          onReferenceChange={setCashPaymentRef}
           onClose={closeCashPaymentModal}
           onConfirm={handleRecordCashPayment}
         />

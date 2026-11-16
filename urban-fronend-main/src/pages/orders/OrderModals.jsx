@@ -15,6 +15,7 @@ import {
 } from "./orderUtils";
 import { useMpesaPaybill } from "../../utils/settings";
 import { orderTotals } from "./orderTotals";
+import { orderBalance } from "./paymentEntry";
 import {
   PAYMENT_METHODS,
   emptyPaymentLine,
@@ -503,32 +504,52 @@ export function EditStatusModal({
 export function CashPaymentModal({
   order,
   amount,
+  method,
+  reference,
   error,
   saving,
   onAmountChange,
+  onMethodChange,
+  onReferenceChange,
   onClose,
   onConfirm,
 }) {
+  const balance = orderBalance(order);
+
   return (
     <div className="orders-modal-overlay" style={modalOverlay} onClick={onClose}>
       <div className="orders-modal-small" style={modalBoxSmall} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <h3 style={{ ...modalTitle, margin: 0 }}>Record Cash Payment</h3>
+          <h3 style={{ ...modalTitle, margin: 0 }}>Record Payment</h3>
           <button onClick={onClose} style={xBtn} disabled={saving}><FiX size={16} /></button>
         </div>
 
         <div style={{ marginBottom: 10, color: "#6b7280" }}>
-          Order: <b>{String(order.id).slice(0, 8).toUpperCase()}</b>
+          Order: <b>{order.accountNumber || String(order.id).slice(0, 8).toUpperCase()}</b>
         </div>
         <div style={{ marginBottom: 14, color: "#374151" }}>
           Customer: <b>{order.customerName || "-"}</b>
           <br />
           Order total: <b>{formatMoney(order.totalAmount)}</b>
           <br />
-          Payment method: <b>Cash</b>
+          Balance due: <b>{formatMoney(balance)}</b>
         </div>
 
-        <label style={{ display: "block", marginBottom: 6, fontWeight: 700 }}>Amount received (KES)</label>
+        <label style={{ display: "block", marginBottom: 6, fontWeight: 700 }}>Payment method</label>
+        <select
+          value={method}
+          onChange={(e) => onMethodChange(e.target.value)}
+          style={inputStyle}
+          disabled={saving}
+        >
+          {PAYMENT_METHODS.map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+
+        <label style={{ display: "block", margin: "12px 0 6px", fontWeight: 700 }}>Amount received (KES)</label>
         <input
           type="number"
           min="0.01"
@@ -539,12 +560,23 @@ export function CashPaymentModal({
           disabled={saving}
         />
 
+        <label style={{ display: "block", margin: "12px 0 6px", fontWeight: 700 }}>
+          {needsReference(method) ? "Transaction code" : "Reference (optional)"}
+        </label>
+        <input
+          value={reference}
+          onChange={(e) => onReferenceChange(e.target.value)}
+          placeholder={needsReference(method) ? "e.g. SGL4H7XK2P" : ""}
+          style={inputStyle}
+          disabled={saving}
+        />
+
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
           <button onClick={onClose} style={cancelBtn} disabled={saving}>
             Cancel
           </button>
           <button onClick={onConfirm} style={cashPaymentBtn} disabled={saving}>
-            {saving ? "Recording..." : "Confirm Cash Payment"}
+            {saving ? "Recording..." : "Confirm Payment"}
           </button>
         </div>
 
