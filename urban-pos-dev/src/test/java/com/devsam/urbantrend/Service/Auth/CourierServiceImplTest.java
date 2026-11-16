@@ -13,10 +13,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CourierServiceImplTest {
@@ -51,6 +53,19 @@ class CourierServiceImplTest {
         service.update(courier.getId(), request);
 
         verify(orderRepository).unassignCourierFromUndispatchedOrders(courier.getId());
+    }
+
+    @Test
+    void phoneNumbersAreTrimmedBeforeTheDuplicateCheckAndStorage() {
+        when(courierRepository.existsByPhoneNumber("0711111111")).thenReturn(true);
+
+        CourierRequest request = new CourierRequest();
+        request.setName(" Sam ");
+        request.setPhoneNumber("  0711111111 ");
+
+        assertThatThrownBy(() -> service.create(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("already exists");
     }
 
     @Test

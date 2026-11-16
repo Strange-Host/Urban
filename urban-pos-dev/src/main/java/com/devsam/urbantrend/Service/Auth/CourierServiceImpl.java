@@ -32,13 +32,15 @@ public class CourierServiceImpl implements CourierService {
         if (request.getPhoneNumber() == null || request.getPhoneNumber().isBlank()) {
             throw new IllegalArgumentException("Courier phone number is required");
         }
-        if (courierRepository.existsByPhoneNumber(request.getPhoneNumber())) {
+        // Trimmed like update() does, otherwise " 0712..." slips past the duplicate check.
+        String phone = request.getPhoneNumber().trim();
+        if (courierRepository.existsByPhoneNumber(phone)) {
             throw new IllegalArgumentException("A courier with this phone number already exists");
         }
 
         Courier courier = Courier.builder()
-                .name(request.getName())
-                .phoneNumber(request.getPhoneNumber())
+                .name(request.getName().trim())
+                .phoneNumber(phone)
                 .vehicleInfo(request.getVehicleInfo())
                 .notes(request.getNotes())
                 .active(request.getActive() == null || request.getActive())
