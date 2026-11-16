@@ -26,6 +26,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { getErrorDetail } from "../utils/errors";
+import { summariseSections } from "../utils/dashboardSections";
 
 function toDateInput(date) {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -52,6 +53,8 @@ export default function Dashboard() {
   const [error, setError] = useState("");
 
   // Dashboard stats
+  // Sections this user is not allowed to see are hidden instead of failing the page.
+  const [denied, setDenied] = useState({});
   const [ordersCount, setOrdersCount] = useState(0);
 
   const [revenue, setRevenue] = useState(0);
@@ -125,73 +128,64 @@ export default function Dashboard() {
         return;
       }
 
-      // 1) Orders count
-      const ordersRes = await api.get("/api/v1/orders", {
-        params: { page: 0, size: 1, sort: "createdAt,desc" },
-      });
-
-      const totalOrders = ordersRes.data.totalElements || 0;
-      setOrdersCount(totalOrders);
-
-      // 2) Profit Report
       const fromDate = `${from}T00:00:00`;
       const toDate = `${to}T23:59:59`;
 
-      const reportRes = await api.get("/api/reports/profit", {
-        params: { from: fromDate, to: toDate },
-      });
+      // Each section loads on its own: a user without, say, the profit-report permission
+      // (every cashier and staff member) still gets the parts they are allowed to see.
+      const names = ["orders", "profit", "topSelling", "recentOrders"];
+      const results = await Promise.allSettled([
+        api.get("/api/v1/orders", { params: { page: 0, size: 1, sort: "createdAt,desc" } }),
+        api.get("/api/reports/profit", { params: { from: fromDate, to: toDate } }),
+        // Backend expects plain LocalDate (yyyy-MM-dd), which `from`/`to` already are.
+        api.get("/api/v1/orders/dashboard/top-selling", { params: { from, to, limit: 5 } }),
+        api.get("/api/v1/orders", { params: { page: 0, size: 3, sort: "createdAt,desc" } }),
+      ]);
 
-      const rep = reportRes.data || {};
+      const [ordersRes, reportRes, topSellingRes, recentRes] = results;
 
-      setRevenue(Number(rep.revenue || 0));
-      setCogs(Number(rep.cogs || 0));
-      setGrossProfit(Number(rep.grossProfit || 0));
-      setExpenses(Number(rep.expenses || 0));
-      setNetProfit(Number(rep.netProfit || 0));
+      if (ordersRes.status === "fulfilled") {
+        setOrdersCount(ordersRes.value.data.totalElements || 0);
+      }
 
-      // 3) Top Selling Products
-      // Backend expects plain LocalDate (yyyy-MM-dd), which `from`/`to` already are.
-      const topSellingRes = await api.get("/api/v1/orders/dashboard/top-selling", {
-        params: { from, to, limit: 5 },
-      });
+      if (reportRes.status === "fulfilled") {
+        const rep = reportRes.value.data || {};
+        setRevenue(Number(rep.revenue || 0));
+        setCogs(Number(rep.cogs || 0));
+        setGrossProfit(Number(rep.grossProfit || 0));
+        setExpenses(Number(rep.expenses || 0));
+        setNetProfit(Number(rep.netProfit || 0));
+      }
 
-      setTopSelling(
-        (topSellingRes.data || []).map((p) => ({
-          id: p.productId,
-          name: p.productName,
-          qty: Number(p.totalQuantity || 0),
-        }))
-      );
+      if (topSellingRes.status === "fulfilled") {
+        setTopSelling(
+          (Array.isArray(topSellingRes.value.data) ? topSellingRes.value.data : []).map((p) => ({
+            id: p.productId,
+            name: p.productName,
+            qty: Number(p.totalQuantity || 0),
+          }))
+        );
+      }
 
-      // 4) Recent Orders
-      // Reuses the same orders list endpoint, just page size 3, newest first.
-      // NOTE: field mapping (customerName / createdAt / totalAmount) is a best guess
-      // based on convention — confirm against the real order object shape and adjust
-      // if the backend uses different field names.
-      const recentRes = await api.get("/api/v1/orders", {
-        params: { page: 0, size: 3, sort: "createdAt,desc" },
-      });
+      if (recentRes.status === "fulfilled") {
+        setRecentOrders(
+          (recentRes.value.data?.content || []).map((o) => ({
+            id: o.id,
+            customer: o.customerName || o.customer?.name || "Unknown",
+            date: o.createdAt
+              ? new Date(o.createdAt).toLocaleDateString("en-KE", { day: "2-digit", month: "short" })
+              : "—",
+            amount: Number(o.totalAmount || 0),
+          }))
+        );
+      }
 
-      setRecentOrders(
-        (recentRes.data.content || []).map((o) => ({
-          id: o.id,
-          customer: o.customerName || o.customer?.name || "Unknown",
-          date: o.createdAt
-            ? new Date(o.createdAt).toLocaleDateString("en-KE", {
-                day: "2-digit",
-                month: "short",
-              })
-            : "—",
-          amount: Number(o.totalAmount || 0),
-        }))
-      );
+      const summary = summariseSections(names, results);
+      setDenied(summary.denied);
+      if (summary.error) setError(summary.error);
     } catch (e) {
       console.log(e);
-      if (e.response?.status === 403) {
-        setError("You do not have permission to view all dashboard data.");
-      } else {
-        setError(getErrorDetail(e, "Failed to load dashboard data."));
-      }
+      setError(getErrorDetail(e, "Failed to load dashboard data."));
     } finally {
       setLoading(false);
     }
@@ -295,16 +289,23 @@ export default function Dashboard() {
 
       {/* Stat Cards */}
       <div className="mb-6 grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        <StatCard title="Revenue" value={money(revenue)} tone="green" icon={FiTrendingUp} />
-        <StatCard title="Orders" value={Number(ordersCount).toLocaleString()} tone="blue" icon={FiShoppingBag} />
-        <StatCard title="Gross Profit" value={money(grossProfit)} tone="indigo" icon={FiPieChart} />
-        <StatCard title="COGS" value={money(cogs)} tone="orange" icon={FiPackage} />
-        <StatCard title="Expenses" value={money(expenses)} tone="red" icon={FiCreditCard} />
+        {!denied.profit && <StatCard title="Revenue" value={money(revenue)} tone="green" icon={FiTrendingUp} />}
+        {!denied.orders && (
+          <StatCard title="Orders" value={Number(ordersCount).toLocaleString()} tone="blue" icon={FiShoppingBag} />
+        )}
+        {!denied.profit && (
+          <>
+            <StatCard title="Gross Profit" value={money(grossProfit)} tone="indigo" icon={FiPieChart} />
+            <StatCard title="COGS" value={money(cogs)} tone="orange" icon={FiPackage} />
+            <StatCard title="Expenses" value={money(expenses)} tone="red" icon={FiCreditCard} />
+          </>
+        )}
       </div>
 
       {/* Main grid */}
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
-        {/* LEFT SIDE */}
+        {/* LEFT SIDE (profit figures: hidden for people without the profit-report permission) */}
+        {!denied.profit && (
         <div className="flex flex-col gap-6 lg:col-span-2">
           {/* Profit summary */}
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-brand-900 p-6 text-white shadow-lg">
@@ -366,9 +367,12 @@ export default function Dashboard() {
           </div>
         </div>
 
+        )}
+
         {/* RIGHT SIDE */}
-        <div className="flex flex-col gap-6 lg:col-span-1">
+        <div className={`flex flex-col gap-6 ${denied.profit ? "lg:col-span-3" : "lg:col-span-1"}`}>
           {/* Top Selling Products */}
+          {!denied.topSelling && (
           <div className="ui-card p-6">
             <h3 className="m-0 mb-4 text-base font-semibold text-slate-900">Top Selling Products</h3>
 
@@ -399,7 +403,10 @@ export default function Dashboard() {
             )}
           </div>
 
+          )}
+
           {/* Recent Orders */}
+          {!denied.orders && (
           <div className="ui-card p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="m-0 text-base font-semibold text-slate-900">Recent Orders</h3>
@@ -430,6 +437,7 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
     </div>
