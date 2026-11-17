@@ -13,6 +13,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 @RestController
@@ -41,6 +43,18 @@ public class DispatchScanController {
             throw new IllegalArgumentException("Choose one of your orders before scanning");
         }
         return ResponseEntity.ok(dispatchScanService.scan(request, user));
+    }
+
+    @PostMapping("/{orderId}/complete")
+    @PreAuthorize("hasAuthority('CAN_UPDATE_ORDER_STATUS')")
+    public ResponseEntity<ScanResponse> complete(
+            @PathVariable UUID orderId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        OrderAccess.requireAccess(user, orderService.getById(orderId));
+        return ResponseEntity.ok(dispatchScanService.completeDispatch(orderId, user));
     }
 
     @DeleteMapping("/{barcode}")

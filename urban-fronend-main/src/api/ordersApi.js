@@ -20,3 +20,9 @@ export async function scanBarcode(barcode, orderId) {
 export async function undoScan(serial) {
   await api.delete(`/api/v1/orders/scan/${encodeURIComponent(serial)}`);
 }
+
+/** Dispatches an order whose units are all packed but which did not dispatch by itself. */
+export async function completeDispatch(orderId) {
+  const res = await api.post(`/api/v1/orders/scan/${encodeURIComponent(orderId)}/complete`);
+  return res.data;
+}

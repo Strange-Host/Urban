@@ -11,7 +11,7 @@ import {
 import { PageHeader, EmptyState, Spinner } from "../components/ui";
 import { labelStyle, inputStyle, actionBtn, tableCard, badgeStyle } from "../components/styles";
 import PermissionGate from "../auth/PermissionGate";
-import { fetchOrders, scanBarcode, undoScan } from "../api/ordersApi";
+import { completeDispatch, fetchOrders, scanBarcode, undoScan } from "../api/ordersApi";
 import { getErrorDetail } from "../api/stickersApi";
 import { useAuth } from "../auth/useAuth";
 import { printReceiptToUSB } from "../utils/printer";
@@ -184,6 +184,42 @@ function ScannerView() {
       document.removeEventListener("click", onClick);
     };
   }, [focusInput]);
+
+  const [finishing, setFinishing] = useState(false);
+
+  // Safety net: if every unit is packed but the order did not dispatch on its own (for
+  // example the last two stickers were scanned at the same moment), finish it by hand.
+  async function finishDispatch(orderId) {
+    try {
+      setFinishing(true);
+      const res = await completeDispatch(orderId);
+
+      setProgress((prev) => ({
+        ...prev,
+        [orderId]: {
+          ...prev[orderId],
+          unitsScanned: res.unitsScanned,
+          unitsRequired: res.unitsRequired,
+          orderStatus: res.orderStatus,
+          dispatched: true,
+        },
+      }));
+      setBanner({ kind: "dispatched", orderId });
+      playSound("dispatched");
+      if (res.orderStatus === "DISPATCHED_UNPAID") {
+        printDispatchReceipt(res);
+      }
+      setAwaitingOrders((prev) => prev.filter((o) => o.id !== orderId));
+      setSelectedOrderId((cur) => (cur === orderId ? "" : cur));
+    } catch (e) {
+      const detail = await getErrorDetail(e, "Could not finish the dispatch.");
+      setBanner({ kind: "error", message: detail });
+      playSound("error");
+    } finally {
+      setFinishing(false);
+      focusInput();
+    }
+  }
 
   async function submitScan(code) {
     const orderId = selectedOrderId || undefined;
@@ -429,6 +465,23 @@ function ScannerView() {
               <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-muted)" }}>units packed</span>
             </div>
           </div>
+          {bannerOrder.unitsRequired > 0 &&
+            bannerOrder.unitsScanned >= bannerOrder.unitsRequired &&
+            !bannerOrder.dispatched && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
+                <span style={{ color: "var(--text-muted)", fontSize: 14 }}>
+                  Every unit is packed but the order has not been dispatched.
+                </span>
+                <button
+                  type="button"
+                  style={actionBtn}
+                  disabled={finishing}
+                  onClick={() => finishDispatch(banner.orderId)}
+                >
+                  <FiTruck size={13} /> {finishing ? "Finishing..." : "Finish dispatch"}
+                </button>
+              </div>
+            )}
           <div style={{ height: 10, background: "#eef0f5", borderRadius: 999, marginTop: 14, overflow: "hidden" }}>
             <div
               style={{

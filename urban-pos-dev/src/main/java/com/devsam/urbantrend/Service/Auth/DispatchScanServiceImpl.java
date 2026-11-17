@@ -45,6 +45,11 @@ public class DispatchScanServiceImpl implements DispatchScanService {
                 ? requestedOrder(request.getOrderId(), product)
                 : oldestOrderNeeding(product);
 
+        // One scan at a time per order: with two scanners the last two stickers could each
+        // count the other as missing and neither would dispatch the order.
+        orderRepository.lockById(order.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+
         unit.setOrderId(order.getId());
         unit.setStatus(StockUnitStatus.PACKED);
         unit.setScannedAt(LocalDateTime.now());
@@ -79,6 +84,44 @@ public class DispatchScanServiceImpl implements DispatchScanService {
                 .message(complete
                         ? "Order " + order.getAccountNumber() + " fully packed and marked " + status
                         : "Packed " + scanned + " of " + required + " units for order " + order.getAccountNumber())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ScanResponse completeDispatch(UUID orderId, User user) {
+        orderRepository.lockById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        Order order = orderService.getById(orderId);
+
+        if (order.getOrderStatus() != OrderStatus.AWAITING_DISPATCH) {
+            throw new IllegalArgumentException("Order " + order.getAccountNumber() + " is not awaiting dispatch");
+        }
+
+        long scanned = stockUnitRepository.countByOrderId(orderId);
+        long required = order.getItems().stream()
+                .mapToLong(item -> item.getQuantity().longValue())
+                .sum();
+
+        boolean complete = order.getItems().stream()
+                .allMatch(item -> remainingForProduct(order, item.getProduct()) <= 0);
+        if (!complete) {
+            throw new IllegalArgumentException("Order " + order.getAccountNumber()
+                    + " is not fully packed yet (" + scanned + " of " + required + " units scanned)");
+        }
+
+        OrderStatus status = dispatchStatus(order);
+        orderService.updateStatus(orderId, status, user);
+        markDispatched(orderId);
+
+        return ScanResponse.builder()
+                .orderId(orderId)
+                .accountNumber(order.getAccountNumber())
+                .orderStatus(status)
+                .unitsScanned(scanned)
+                .unitsRequired(required)
+                .orderDispatched(true)
+                .message("Order " + order.getAccountNumber() + " fully packed and marked " + status)
                 .build();
     }
 
