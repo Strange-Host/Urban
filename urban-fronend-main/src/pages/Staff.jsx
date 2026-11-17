@@ -36,6 +36,7 @@ import {
   badgeStyle,
 } from "../components/styles";
 import { getErrorDetail } from "../utils/errors";
+import { buildStaffRequest } from "../utils/staffForm";
 
 const PERMISSION_GROUPS = {
   "CRM / Leads":  ["CAN_VIEW_LEADS","CAN_CREATE_LEADS","CAN_UPDATE_LEAD_STATUS","CAN_CONVERT_LEADS"],
@@ -89,7 +90,7 @@ export default function Staff() {
   const size = 10;
   const [pageData, setPageData] = useState(null);
   const [staffList, setStaffList] = useState([]);
-  const roles = ["CASHIER", "MANAGER", "STAFF"];
+  const roles = ["CASHIER", "MANAGER", "STAFF", "ATTENDANT"];
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({
@@ -200,28 +201,15 @@ export default function Staff() {
   function closeAddModal() { setIsAddOpen(false); }
   function handleAddChange(e) { setForm({ ...form, [e.target.name]: e.target.value }); }
 
-  function splitName(fullName) {
-    const parts = String(fullName || "").trim().split(" ").filter(Boolean);
-    if (parts.length === 0) return { firstName: "", lastName: "" };
-    if (parts.length === 1) return { firstName: parts[0], lastName: "" };
-    return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
-  }
-
   async function handleAddStaff() {
-    if (!form.fullName || !form.phone || !form.email || !form.password) {
-      alert("Please fill all fields.");
+    const { request, error: formError } = buildStaffRequest(form);
+    if (formError) {
+      alert(formError);
       return;
     }
     try {
       setLoading(true);
-      const { firstName, lastName } = splitName(form.fullName);
-      await api.post("/api/v1/auth/register", {
-        firstName, lastName,
-        email: form.email,
-        phoneNumber: form.phone,
-        password: form.password,
-        role: form.role,
-      });
+      await api.post("/api/v1/auth/register", request);
       closeAddModal();
       setPage(0);
       invalidateStaff();

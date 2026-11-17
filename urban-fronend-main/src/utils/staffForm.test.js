@@ -1,0 +1,38 @@
+import { describe, expect, it } from "vitest";
+import { buildStaffRequest, splitName } from "./staffForm";
+
+const valid = {
+  fullName: "Jane Wanjiku",
+  email: " Jane@Company.com ",
+  phone: "0712 345 678",
+  password: "longenough",
+  role: "STAFF",
+};
+
+describe("buildStaffRequest", () => {
+  it("builds a clean request: lower-cased email, canonical phone, split name", () => {
+    expect(buildStaffRequest(valid).request).toEqual({
+      firstName: "Jane",
+      lastName: "Wanjiku",
+      email: "jane@company.com",
+      phoneNumber: "0712345678",
+      password: "longenough",
+      role: "STAFF",
+    });
+  });
+
+  it("explains a one-word name instead of letting the server fail", () => {
+    expect(buildStaffRequest({ ...valid, fullName: "Jane" }).error).toContain("first and a last name");
+    expect(buildStaffRequest({ ...valid, fullName: "  " }).error).toContain("first and a last name");
+  });
+
+  it("keeps multi-part surnames together", () => {
+    expect(splitName("Jane  Wanjiku   Kamau")).toEqual({ firstName: "Jane", lastName: "Wanjiku Kamau" });
+  });
+
+  it("rejects a bad email, a phone that cannot receive the login code, and a short password", () => {
+    expect(buildStaffRequest({ ...valid, email: "jane" }).error).toContain("email");
+    expect(buildStaffRequest({ ...valid, phone: "12345" }).error).toContain("Kenyan mobile");
+    expect(buildStaffRequest({ ...valid, password: "short" }).error).toContain("8 characters");
+  });
+});
