@@ -59,6 +59,17 @@ public class StickerServiceImpl implements StickerService {
     private final InventoryService inventoryService;
 
     @Override
+    @Transactional(readOnly = true)
+    public java.util.List<com.devsam.urbantrend.Dtos.StickerBatchSummary> listBatches(UUID productId, int limit) {
+        int size = Math.max(1, Math.min(limit, 100));
+        return stockUnitRepository
+                .findRecentBatches(productId, org.springframework.data.domain.PageRequest.of(0, size))
+                .stream()
+                .map(com.devsam.urbantrend.Dtos.StickerBatchSummary::from)
+                .toList();
+    }
+
+    @Override
     @Transactional
     public StickerBatch restockWithStickers(InventoryRequest request, StickerLayout layout, User user) {
         int quantity = toWholeQuantity(request.getQuantity());

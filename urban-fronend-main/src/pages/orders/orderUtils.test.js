@@ -6,6 +6,7 @@ import {
   getOrderProductLines,
   getParcelAgeHighlight,
   niceStatus,
+  orderReference,
   previewText,
   statusStyle,
 } from "./orderUtils";
@@ -81,5 +82,11 @@ describe("orderUtils", () => {
     expect(getOrderProductLines({ products: ["Scarf"] })).toEqual(["Scarf"]);
     expect(getOrderProductLines({ productName: "Coat" })).toEqual(["Coat"]);
     expect(getOrderProductLines({})).toEqual(["-"]);
+  });
+
+  it("refers to an order by account number, falling back to a short id", () => {
+    expect(orderReference({ id: "abcdef12-0000", accountNumber: "8025631#ABCDE" })).toBe("8025631#ABCDE");
+    expect(orderReference({ id: "abcdef12-0000" })).toBe("ABCDEF12");
+    expect(orderReference(null)).toBe("-");
   });
 });

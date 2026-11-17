@@ -50,6 +50,15 @@ public class StickerController {
         return pdf(stickerService.createStickers(productId, quantity, layout));
     }
 
+    @GetMapping("/batches")
+    @PreAuthorize("hasAuthority('CAN_RESTOCK_INVENTORY')")
+    public java.util.List<com.devsam.urbantrend.Dtos.StickerBatchSummary> batches(
+            @RequestParam(required = false) UUID productId,
+            @RequestParam(defaultValue = "20") int limit
+    ) {
+        return stickerService.listBatches(productId, limit);
+    }
+
     @GetMapping("/batches/{batchId}")
     @PreAuthorize("hasAuthority('CAN_RESTOCK_INVENTORY')")
     public ResponseEntity<byte[]> reprintBatch(

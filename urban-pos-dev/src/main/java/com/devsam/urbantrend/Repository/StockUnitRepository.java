@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import org.springframework.data.domain.Pageable;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -18,6 +20,16 @@ public interface StockUnitRepository extends JpaRepository<StockUnit, UUID> {
     Optional<StockUnit> findBySerial(String serial);
 
     List<StockUnit> findByBatchIdOrderBySerialAsc(UUID batchId);
+
+    // Newest printed batches first, optionally for one product.
+    @Query("""
+        SELECT u.batchId, p.id, p.name, COUNT(u), MIN(u.createdAt)
+        FROM StockUnit u JOIN u.product p
+        WHERE (:productId IS NULL OR p.id = :productId)
+        GROUP BY u.batchId, p.id, p.name
+        ORDER BY MIN(u.createdAt) DESC
+    """)
+    List<Object[]> findRecentBatches(@Param("productId") UUID productId, Pageable pageable);
 
     List<StockUnit> findByOrderId(UUID orderId);
 

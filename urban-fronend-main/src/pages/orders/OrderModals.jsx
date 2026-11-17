@@ -12,6 +12,7 @@ import {
   formatMoney,
   getOrderProductLines,
   niceStatus,
+  orderReference,
 } from "./orderUtils";
 import { useMpesaPaybill } from "../../utils/settings";
 import { orderTotals } from "./orderTotals";
@@ -459,7 +460,7 @@ export function EditStatusModal({
         </div>
 
         <div style={{ marginBottom: 10, color: "#6b7280" }}>
-          Order: <b>{String(order.id).slice(0, 8).toUpperCase()}</b>
+          Order: <b>{orderReference(order)}</b>
         </div>
 
         <select
@@ -525,7 +526,7 @@ export function CashPaymentModal({
         </div>
 
         <div style={{ marginBottom: 10, color: "#6b7280" }}>
-          Order: <b>{order.accountNumber || String(order.id).slice(0, 8).toUpperCase()}</b>
+          Order: <b>{orderReference(order)}</b>
         </div>
         <div style={{ marginBottom: 14, color: "#374151" }}>
           Customer: <b>{order.customerName || "-"}</b>
@@ -615,7 +616,7 @@ export function OrderNotesModal({
         </div>
 
         <div style={{ marginBottom: 10, color: "#6b7280" }}>
-          Order: <b>{String(order.id).slice(0, 8).toUpperCase()}</b>
+          Order: <b>{orderReference(order)}</b>
         </div>
 
         <textarea

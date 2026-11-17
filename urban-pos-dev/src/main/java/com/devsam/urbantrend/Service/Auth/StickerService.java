@@ -16,5 +16,7 @@ public interface StickerService {
     StickerBatch createStickers(UUID productId, int quantity, StickerLayout layout);
 
     // Reprints an existing batch
+    java.util.List<com.devsam.urbantrend.Dtos.StickerBatchSummary> listBatches(UUID productId, int limit);
+
     StickerBatch reprintBatch(UUID batchId, StickerLayout layout);
 }

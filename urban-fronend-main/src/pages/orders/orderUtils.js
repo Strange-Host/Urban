@@ -117,3 +117,9 @@ export function getOrderProductLines(order) {
 
   return [order.productName || "-"];
 }
+
+/** What staff and customers call an order: its account number, else a short id. */
+export function orderReference(order) {
+  if (!order) return "-";
+  return order.accountNumber || String(order.id || "").slice(0, 8).toUpperCase() || "-";
+}

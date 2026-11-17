@@ -46,6 +46,14 @@ export async function printProductStickers(productId, quantity, layout = "A4") {
   return toPdfResult(res);
 }
 
+/** Recently printed sticker batches (newest first), optionally for one product. */
+export async function fetchStickerBatches(productId) {
+  const res = await api.get("/api/v1/stickers/batches", {
+    params: { productId: productId || undefined, limit: 30 },
+  });
+  return res.data || [];
+}
+
 export async function reprintBatch(batchId, layout = "A4") {
   const res = await api.get(`/api/v1/stickers/batches/${encodeURIComponent(batchId)}`, {
     params: { layout },

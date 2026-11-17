@@ -13,6 +13,7 @@ import {
   alertSuccess,
 } from "./styles";
 import { Spinner } from "./ui";
+import { batchLabel } from "../utils/stickerBatches";
 import {
   STICKER_LAYOUTS,
   getSavedLayout,
@@ -20,6 +21,7 @@ import {
   restockWithStickers,
   printProductStickers,
   reprintBatch,
+  fetchStickerBatches,
   getErrorDetail,
 } from "../api/stickersApi";
 
@@ -45,6 +47,20 @@ export default function StickerModal({ mode, product, onClose, onSuccess }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null); // { url, batchId, message }
+  const [batches, setBatches] = useState([]);
+
+  // Reprinting used to need a batch id typed by hand, and the id was only shown right after
+  // printing. Offer the recent batches instead.
+  useEffect(() => {
+    if (mode !== "reprint") return undefined;
+    let active = true;
+    fetchStickerBatches(product?.id)
+      .then((list) => active && setBatches(list))
+      .catch(() => active && setBatches([]));
+    return () => {
+      active = false;
+    };
+  }, [mode, product?.id]);
 
   useEffect(() => {
     if (!result?.url) return undefined;
@@ -182,13 +198,27 @@ export default function StickerModal({ mode, product, onClose, onSuccess }) {
 
             {mode === "reprint" ? (
               <div>
-                <label style={labelStyle}>Batch ID</label>
+                <label style={labelStyle}>Printed batch</label>
+                {batches.length > 0 && (
+                  <select
+                    value={batches.some((b) => b.batchId === form.batchId) ? form.batchId : ""}
+                    onChange={(e) => setForm({ ...form, batchId: e.target.value })}
+                    style={{ ...inputStyle, marginBottom: 10 }}
+                    aria-label="Printed batch"
+                  >
+                    <option value="">Choose a recent batch…</option>
+                    {batches.map((b) => (
+                      <option key={b.batchId} value={b.batchId}>
+                        {batchLabel(b, !product)}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <input
                   value={form.batchId}
                   onChange={(e) => setForm({ ...form, batchId: e.target.value })}
-                  placeholder="e.g. 3f2b8c1e-..."
+                  placeholder="…or paste a batch ID"
                   style={inputStyle}
-                  autoFocus
                 />
               </div>
             ) : (
