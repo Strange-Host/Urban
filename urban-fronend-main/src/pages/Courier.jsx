@@ -20,6 +20,8 @@ import {
 } from "../components/styles";
 import { getErrorDetail } from "../utils/errors";
 
+const ORDERS_PAGE_SIZE = 10;
+
 export default function Couriers() {
   const [search, setSearch] = useState("");
 
@@ -39,6 +41,9 @@ export default function Couriers() {
   const [courierOrders, setCourierOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState("");
+  const [ordersPage, setOrdersPage] = useState(0);
+  const [ordersTotal, setOrdersTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -174,33 +179,60 @@ export default function Couriers() {
     }
   }
 
+  async function fetchCourierOrders(courier, page) {
+    const res = await api.get("/api/v1/orders", {
+      params: {
+        page,
+        size: ORDERS_PAGE_SIZE,
+        sort: "createdAt,desc",
+        courierId: String(courier.id),
+      },
+    });
+    const rows = Array.isArray(res.data) ? res.data : res.data.content || [];
+    return { rows, total: Array.isArray(res.data) ? rows.length : res.data.totalElements ?? rows.length };
+  }
+
+  function courierOrdersError(e) {
+    const status = e.response?.status;
+    return status === 403
+      ? "You do not have permission to view orders."
+      : status === 404
+        ? "The orders endpoint was not found."
+        : getErrorDetail(e, "Failed to load orders for this courier.");
+  }
+
   async function openCourierOrders(courier) {
     setSelectedCourier(courier);
     setCourierOrders([]);
+    setOrdersPage(0);
+    setOrdersTotal(0);
     setOrdersError("");
     setOrdersLoading(true);
 
     try {
-      const res = await api.get("/api/v1/orders", {
-        params: {
-          page: 0,
-          size: 10,
-          sort: "createdAt,desc",
-          courierId: String(courier.id),
-        },
-      });
-      setCourierOrders(Array.isArray(res.data) ? res.data : res.data.content || []);
+      const { rows, total } = await fetchCourierOrders(courier, 0);
+      setCourierOrders(rows);
+      setOrdersTotal(total);
     } catch (e) {
-      const status = e.response?.status;
-      setOrdersError(
-        status === 403
-          ? "You do not have permission to view orders."
-          : status === 404
-            ? "The orders endpoint was not found."
-            : "Failed to load orders for this courier."
-      );
+      setOrdersError(courierOrdersError(e));
     } finally {
       setOrdersLoading(false);
+    }
+  }
+
+  // The panel used to stop at the latest 10 orders with no way to see the rest.
+  async function loadMoreCourierOrders() {
+    const nextPage = ordersPage + 1;
+    try {
+      setLoadingMore(true);
+      const { rows, total } = await fetchCourierOrders(selectedCourier, nextPage);
+      setCourierOrders((prev) => [...prev, ...rows]);
+      setOrdersTotal(total);
+      setOrdersPage(nextPage);
+    } catch (e) {
+      setOrdersError(courierOrdersError(e));
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -579,6 +611,19 @@ export default function Couriers() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {!ordersLoading && courierOrders.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
+                <span style={{ color: "var(--text-muted)", fontSize: 13 }}>
+                  Showing {courierOrders.length} of {ordersTotal}
+                </span>
+                {courierOrders.length < ordersTotal && (
+                  <button type="button" style={pageBtnStyle} onClick={loadMoreCourierOrders} disabled={loadingMore}>
+                    {loadingMore ? "Loading..." : "Load more"}
+                  </button>
+                )}
               </div>
             )}
           </div>
