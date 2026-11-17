@@ -1,5 +1,7 @@
 import React, { Suspense, useEffect, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "../auth/useAuth";
+import { canAccessPath } from "./routeAccess";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import LogoutModal from "../pages/logoutModal";
@@ -8,6 +10,8 @@ export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const { pathname } = useLocation();
+  const { can, user } = useAuth();
+  const hasAccess = canAccessPath(pathname, can, user);
 
   // Close the drawer whenever the route changes
   useEffect(() => {
@@ -47,7 +51,21 @@ export default function AppLayout() {
                 </div>
               }
             >
-              <Outlet />
+              {hasAccess ? (
+                <Outlet />
+              ) : (
+                <div className="grid min-h-[50vh] place-items-center text-center">
+                  <div>
+                    <h2 className="m-0 text-xl font-semibold text-slate-900">You do not have access to this page</h2>
+                    <p className="mt-2 text-sm text-slate-500">
+                      Ask an admin to grant you the permission if you need it.
+                    </p>
+                    <Link to="/dashboard" className="mt-4 inline-block text-sm font-medium text-indigo-600">
+                      Back to the dashboard
+                    </Link>
+                  </div>
+                </div>
+              )}
             </Suspense>
           </div>
         </main>
