@@ -22,7 +22,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.random.RandomGenerator;
 import java.util.stream.Collectors;
@@ -166,10 +169,11 @@ public class AuthService {
         User user = userRepository.findByEmailAndDeletedAtIsNull(email)
                 .orElseThrow(() -> new BadCredentialsException("Invalid refresh token"));
 
-        // Validate stored refresh token
-        if (!refreshToken.equals(user.getRefreshToken()) ||
-                user.getRefreshTokenExpiry() == null ||
-                user.getRefreshTokenExpiry().isBefore(LocalDateTime.now())) {
+        // Refresh tokens are not tied to a single stored value, so a second login (another
+        // device, a shared terminal) no longer signs the first session out. A token stays valid
+        // until it expires or the user logs out, which revokes everything issued before it.
+        Date issuedAt = jwtService.extractIssuedAt(refreshToken);
+        if (issuedAt == null || isRevokedByLogout(user, issuedAt)) {
             throw new BadCredentialsException("Refresh token expired or invalid");
         }
 
@@ -181,6 +185,18 @@ public class AuthService {
         );
 
         return new AuthResponse(newAccessToken, refreshToken, "SUCCESS");
+    }
+
+    private static boolean isRevokedByLogout(User user, Date issuedAt) {
+        if (user.getLastLogoutAt() == null) {
+            return false;
+        }
+        // Issue times only have second precision, so compare at the second the user logged out.
+        Instant loggedOutAt = user.getLastLogoutAt()
+                .atZone(ZoneId.systemDefault())
+                .truncatedTo(ChronoUnit.SECONDS)
+                .toInstant();
+        return issuedAt.toInstant().isBefore(loggedOutAt);
     }
 
     public Page<User> getAllUsers(Pageable pageable) {

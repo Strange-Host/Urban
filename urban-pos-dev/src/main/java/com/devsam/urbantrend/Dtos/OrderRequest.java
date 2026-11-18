@@ -19,8 +19,16 @@ import java.util.UUID;
 @AllArgsConstructor
 public class OrderRequest {
 
-    @NotNull
+    /**
+     * Either an existing customer, or the customer's details below, which are matched or
+     * created in the same transaction as the order.
+     */
     private UUID customerId;
+
+    private String customerName;
+    private String customerPhone;
+    private String customerEmail;
+    private String customerCity;
 
     private UUID assignedTo;
     private BigDecimal totalAmount;

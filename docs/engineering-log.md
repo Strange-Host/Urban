@@ -190,9 +190,19 @@ Chronological record of the audit, fixes, refactors and test work. Commits are o
 ## Known limitations and next steps
 
 - **Migrations are not exercised by tests.** The H2 profile disables Flyway and uses `create-drop`, so V34-V37 must be validated against a real PostgreSQL copy before deploying.
-- **OTP storage is in-process.** Restarting or running multiple instances loses OTPs and cooldowns. Redis is the intended replacement.
+- **OTP storage.** One-time codes are stored (hashed) in the `otp_codes` table, so restarts and several instances no longer lose them (V42). The attempt counter is protected by a row lock.
 - **SMS is not tested end to end.** Integration tests use a blank phone number so OTP generation succeeds without calling Zettatel.
 - **E2E uses a mocked API.** It verifies UI flows and client contract assumptions, not the real backend.
-- **One refresh token per user.** A new login invalidates older refresh tokens; refresh does not rotate the token.
+- **Refresh tokens.** Several devices can stay signed in at once. A refresh token is valid until it expires or the user logs out; logging out revokes every refresh token issued before it. Tokens are not individually revocable and refresh does not rotate the token.
 - **Frontend unit coverage excludes pages, layout and components.** Coverage focuses on utilities, auth and the API layer.
 - **Lint has 11 pre-existing `exhaustive-deps` warnings.** They are warnings only; the build and CI are green.
+
+## Bug-report open items (final round)
+
+Done in this round: fractional scan quantities round up (#30); new products start stock-tracked at zero (#28b); Shopify quantity and variant are kept on the lead and update events are ignored (M11); a second open lead for the same phone needs confirmation (M11); the UI refreshes the access token in the background so permission changes appear without signing in again (M15); OTPs persist in the database (M6, V42); several concurrent sessions per user (M5); an order and its customer are created in one transaction (M18).
+
+Decided and left as they are:
+
+- **#31, walk-in sales without a phone.** Each one is its own customer. Sharing one customer, or matching by name, would attach unrelated people to the same history; a phone number is the only reliable key.
+- **M13, payroll KPI window.** Commission is calculated from the order's current paid status and the week the order was created, so an order paid later can still change a past week's figure. This is kept deliberately so late payments are rewarded; run payroll after the weekly collections are in.
+- **M17, tokens in local storage.** Kept. Moving to httpOnly cookies changes the API, CORS and the live-notification stream. The known script-injection route (receipt printing) is fixed, and the notification stream no longer carries the token in its URL.

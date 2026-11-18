@@ -148,8 +148,7 @@ class AuthServiceTest {
         when(jwtService.isTokenValid("refresh")).thenReturn(true);
         when(jwtService.isRefreshToken("refresh")).thenReturn(true);
         when(jwtService.extractEmail("refresh")).thenReturn("jane@example.com");
-        jane.setRefreshToken("refresh");
-        jane.setRefreshTokenExpiry(java.time.LocalDateTime.now().plusDays(1));
+        when(jwtService.extractIssuedAt("refresh")).thenReturn(new java.util.Date());
         when(userRepository.findByEmailAndDeletedAtIsNull("jane@example.com"))
                 .thenReturn(Optional.of(jane));
         when(userPermissionRepository.findByUserId(jane.getId())).thenReturn(List.of());
@@ -162,5 +161,55 @@ class AuthServiceTest {
         verify(jwtService).generateAccessToken(
                 eq("jane@example.com"), eq("STAFF"), anyList(), profileCaptor.capture());
         assertThat(profileCaptor.getValue()).containsKey("id");
+    }
+
+    @Test
+    void aSecondLoginDoesNotInvalidateAnEarlierRefreshToken() {
+        when(jwtService.isTokenValid("first")).thenReturn(true);
+        when(jwtService.isRefreshToken("first")).thenReturn(true);
+        when(jwtService.extractEmail("first")).thenReturn("jane@example.com");
+        when(jwtService.extractIssuedAt("first")).thenReturn(new java.util.Date());
+        // The stored column now holds the newest login's token, not "first".
+        jane.setRefreshToken("second");
+        when(userRepository.findByEmailAndDeletedAtIsNull("jane@example.com"))
+                .thenReturn(Optional.of(jane));
+        when(userPermissionRepository.findByUserId(jane.getId())).thenReturn(List.of());
+        when(jwtService.generateAccessToken(eq("jane@example.com"), eq("STAFF"), anyList(), anyMap()))
+                .thenReturn("new-access");
+
+        AuthResponse response = service.refresh("first");
+
+        assertThat(response.getAccessToken()).isEqualTo("new-access");
+    }
+
+    @Test
+    void logoutRevokesRefreshTokensIssuedBeforeIt() {
+        when(jwtService.isTokenValid("old")).thenReturn(true);
+        when(jwtService.isRefreshToken("old")).thenReturn(true);
+        when(jwtService.extractEmail("old")).thenReturn("jane@example.com");
+        when(jwtService.extractIssuedAt("old"))
+                .thenReturn(new java.util.Date(System.currentTimeMillis() - 3_600_000L));
+        jane.setLastLogoutAt(java.time.LocalDateTime.now().minusMinutes(5));
+        when(userRepository.findByEmailAndDeletedAtIsNull("jane@example.com"))
+                .thenReturn(Optional.of(jane));
+
+        assertThatThrownBy(() -> service.refresh("old"))
+                .isInstanceOf(BadCredentialsException.class);
+    }
+
+    @Test
+    void tokensIssuedAfterLogoutStillRefresh() {
+        when(jwtService.isTokenValid("new")).thenReturn(true);
+        when(jwtService.isRefreshToken("new")).thenReturn(true);
+        when(jwtService.extractEmail("new")).thenReturn("jane@example.com");
+        when(jwtService.extractIssuedAt("new")).thenReturn(new java.util.Date());
+        jane.setLastLogoutAt(java.time.LocalDateTime.now().minusMinutes(5));
+        when(userRepository.findByEmailAndDeletedAtIsNull("jane@example.com"))
+                .thenReturn(Optional.of(jane));
+        when(userPermissionRepository.findByUserId(jane.getId())).thenReturn(List.of());
+        when(jwtService.generateAccessToken(eq("jane@example.com"), eq("STAFF"), anyList(), anyMap()))
+                .thenReturn("new-access");
+
+        assertThat(service.refresh("new").getAccessToken()).isEqualTo("new-access");
     }
 }

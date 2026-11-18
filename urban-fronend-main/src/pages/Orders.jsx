@@ -423,25 +423,15 @@ export default function Orders() {
       setLoading(true);
       setError("");
 
-      // 1) Create customer first
-      const customerPayload = {
-        name: customerForm.name,
-        phone: customerForm.phone || null,
-        email: customerForm.email || null,
-        city_town:
+      // The customer is matched or created by the server in the same step as the order, so a
+      // sale that fails (stock, payment) leaves no customer record behind.
+      const orderPayload = {
+        customerName: customerForm.name,
+        customerPhone: customerForm.phone || null,
+        customerEmail: customerForm.email || null,
+        customerCity:
           customerForm.city_town ||
           (orderForm.orderType === "ONLINE" ? orderForm.deliveryCity : null),
-      };
-
-      const customerRes = await api.post("/api/v1/customers", customerPayload);
-
-      const customerId = customerRes.data.id || customerRes.data.customerId;
-      if (!customerId)
-        throw new Error("Customer created but no customerId returned.");
-
-      // 2) Create order
-      const orderPayload = {
-        customerId,
         orderType: orderForm.orderType || "ONLINE",
         assignedTo: orderForm.assignedTo || null,
         discount: Number(orderForm.discount || 0),

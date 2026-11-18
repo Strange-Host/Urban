@@ -11,6 +11,7 @@ import com.devsam.urbantrend.Enum.OrderStatus;
 import com.devsam.urbantrend.Repository.UserRepository;
 import com.devsam.urbantrend.Roles.UserRole;
 import com.devsam.urbantrend.Security.OrderAccess;
+import com.devsam.urbantrend.Service.Auth.OrderCheckoutService;
 import com.devsam.urbantrend.Service.Auth.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 public class OrderController {
 
     private final OrderService orderService;
+    private final OrderCheckoutService orderCheckoutService;
     private final UserRepository userRepository;
 
     @PostMapping
@@ -45,7 +47,7 @@ public class OrderController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User user = getUser(userDetails);
-        Order order = orderService.create(request, user);
+        Order order = orderCheckoutService.create(request, user);
         return ResponseEntity.status(HttpStatus.CREATED).body(order);
     }
 
