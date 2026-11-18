@@ -12,7 +12,7 @@ public class RegisterRequest {
     @NotBlank
     private String firstName;
 
-    @NotBlank
+    /** Optional: some people have a single name. Stored as an empty string when absent. */
     private String lastName;
 
     @NotBlank

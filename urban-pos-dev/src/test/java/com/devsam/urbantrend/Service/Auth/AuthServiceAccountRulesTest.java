@@ -3,6 +3,7 @@ package com.devsam.urbantrend.Service.Auth;
 import com.devsam.urbantrend.Dtos.RegisterRequest;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Errors.ResourceNotFoundException;
+import com.devsam.urbantrend.Repository.AuthSessionRepository;
 import com.devsam.urbantrend.Repository.LogoutCheckRepository;
 import com.devsam.urbantrend.Repository.UserPermissionRepository;
 import com.devsam.urbantrend.Repository.UserRepository;
@@ -41,13 +42,14 @@ class AuthServiceAccountRulesTest {
     @Mock private OtpService otpService;
     @Mock private LogoutCheckRepository logoutCheckRepository;
     @Mock private AuthCache authCache;
+    @Mock private AuthSessionRepository authSessionRepository;
 
     private AuthService service;
 
     @BeforeEach
     void setUp() {
         service = new AuthService(userRepository, passwordEncoder, jwtService,
-                userPermissionRepository, otpService, logoutCheckRepository, authCache);
+                userPermissionRepository, otpService, logoutCheckRepository, authCache, authSessionRepository);
 
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("admin@example.com", "x",
@@ -94,6 +96,18 @@ class AuthServiceAccountRulesTest {
 
         assertThat(service.register(registration("Sunrise2026", "Kamau")).getEmail())
                 .isEqualTo("wanjiru@example.com");
+    }
+
+    @Test
+    void aSingleNameIsAccepted() {
+        when(passwordEncoder.encode("Sunrise2026")).thenReturn("hash");
+        org.mockito.ArgumentCaptor<User> saved = org.mockito.ArgumentCaptor.forClass(User.class);
+
+        service.register(registration("Sunrise2026", null));
+
+        org.mockito.Mockito.verify(userRepository).save(saved.capture());
+        assertThat(saved.getValue().getFirstName()).isEqualTo("Wanjiru");
+        assertThat(saved.getValue().getLastName()).isEmpty();
     }
 
     @Test

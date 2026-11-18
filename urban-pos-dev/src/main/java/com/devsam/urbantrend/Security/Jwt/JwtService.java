@@ -14,6 +14,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 
 @Service
@@ -22,6 +23,7 @@ public class JwtService {
     private static final String TOKEN_TYPE_CLAIM = "type";
     private static final String TYPE_ACCESS = "access";
     private static final String TYPE_REFRESH = "refresh";
+    private static final String SESSION_CLAIM = "sid";
 
     @Value("${jwt.secret}")
     private String secretKey;
@@ -34,6 +36,15 @@ public class JwtService {
 
     public String extractEmail(String token) {
         return extractClaim(token, Claims::getSubject);
+    }
+
+    public UUID extractSessionId(String token) {
+        try {
+            String sid = extractClaim(token, claims -> claims.get(SESSION_CLAIM, String.class));
+            return sid == null ? null : UUID.fromString(sid);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     public Date extractIssuedAt(String token) {
@@ -59,6 +70,12 @@ public class JwtService {
      */
     public String generateAccessToken(String email, String role, List<String> authorities,
                                       Map<String, Object> profile) {
+        return generateAccessToken(email, role, authorities, profile, null);
+    }
+
+    /** @param sessionId the device session this token belongs to; null for a sessionless token */
+    public String generateAccessToken(String email, String role, List<String> authorities,
+                                      Map<String, Object> profile, UUID sessionId) {
         Map<String, Object> claims = new HashMap<>();
         if (profile != null) {
             claims.putAll(profile);
@@ -66,12 +83,22 @@ public class JwtService {
         claims.put("role", role);
         claims.put("authorities", authorities); // ✅ embedded in token
         claims.put(TOKEN_TYPE_CLAIM, TYPE_ACCESS);
+        if (sessionId != null) {
+            claims.put(SESSION_CLAIM, sessionId.toString());
+        }
         return buildToken(email, claims, accessTokenExpiration);
     }
 
     public String generateRefreshToken(String email) {
+        return generateRefreshToken(email, null);
+    }
+
+    public String generateRefreshToken(String email, UUID sessionId) {
         Map<String, Object> claims = new HashMap<>();
         claims.put(TOKEN_TYPE_CLAIM, TYPE_REFRESH);
+        if (sessionId != null) {
+            claims.put(SESSION_CLAIM, sessionId.toString());
+        }
         return buildToken(email, claims, refreshTokenExpiration);
     }
 

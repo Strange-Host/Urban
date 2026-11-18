@@ -193,13 +193,13 @@ Chronological record of the audit, fixes, refactors and test work. Commits are o
 - **OTP storage.** One-time codes are stored (hashed) in the `otp_codes` table, so restarts and several instances no longer lose them (V42). The attempt counter is protected by a row lock.
 - **SMS is not tested end to end.** Integration tests use a blank phone number so OTP generation succeeds without calling Zettatel.
 - **E2E uses a mocked API.** It verifies UI flows and client contract assumptions, not the real backend.
-- **Refresh tokens.** Several devices can stay signed in at once. A refresh token is valid until it expires or the user logs out; logging out revokes every refresh token issued before it. Tokens are not individually revocable and refresh does not rotate the token.
+- **Refresh tokens.** Each login creates a row in `auth_sessions` (V43); the access and refresh tokens both carry its id in the `sid` claim. Logging out revokes only that device's session, and refresh succeeds only while the session is active. Tokens issued before V43 have no `sid` and keep the old rule (a logout revokes every older such token) until they expire within the refresh lifetime. Access tokens already issued stay valid until they expire, and refresh does not rotate the token.
 - **Frontend unit coverage excludes pages, layout and components.** Coverage focuses on utilities, auth and the API layer.
 - **Lint has 11 pre-existing `exhaustive-deps` warnings.** They are warnings only; the build and CI are green.
 
 ## Bug-report open items (final round)
 
-Done in this round: fractional scan quantities round up (#30); new products start stock-tracked at zero (#28b); Shopify quantity and variant are kept on the lead and update events are ignored (M11); a second open lead for the same phone needs confirmation (M11); the UI refreshes the access token in the background so permission changes appear without signing in again (M15); OTPs persist in the database (M6, V42); several concurrent sessions per user (M5); an order and its customer are created in one transaction (M18).
+Done in this round: fractional scan quantities round up (#30); new products start stock-tracked at zero (#28b); Shopify quantity and variant are kept on the lead and update events are ignored (M11); a second open lead for the same phone needs confirmation (M11); the UI refreshes the access token in the background so permission changes appear without signing in again (M15); OTPs persist in the database (M6, V42); several concurrent sessions per user, each device with its own session so logging out ends only that device (M5); an order and its customer are created in one transaction (M18); staff can be added with a single name, stored with an empty last name (#38).
 
 Decided and left as they are:
 

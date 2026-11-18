@@ -21,9 +21,15 @@ describe("buildStaffRequest", () => {
     });
   });
 
-  it("explains a one-word name instead of letting the server fail", () => {
-    expect(buildStaffRequest({ ...valid, fullName: "Jane" }).error).toContain("first and a last name");
-    expect(buildStaffRequest({ ...valid, fullName: "  " }).error).toContain("first and a last name");
+  it("accepts a one-word name with an empty last name", () => {
+    const result = buildStaffRequest({ ...valid, fullName: "Jane" });
+    expect(result.error).toBeUndefined();
+    expect(result.request.firstName).toBe("Jane");
+    expect(result.request.lastName).toBe("");
+  });
+
+  it("still asks for a name when the field is blank", () => {
+    expect(buildStaffRequest({ ...valid, fullName: "  " }).error).toContain("name");
   });
 
   it("keeps multi-part surnames together", () => {

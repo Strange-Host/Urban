@@ -3,7 +3,9 @@ package com.devsam.urbantrend.Service.Auth;
 import com.devsam.urbantrend.Dtos.AuthResponse;
 import com.devsam.urbantrend.Dtos.LoginRequest;
 import com.devsam.urbantrend.Dtos.LogoutCheckRequest;
+import com.devsam.urbantrend.Entity.AuthSession;
 import com.devsam.urbantrend.Entity.User;
+import com.devsam.urbantrend.Repository.AuthSessionRepository;
 import com.devsam.urbantrend.Repository.LogoutCheckRepository;
 import com.devsam.urbantrend.Repository.UserPermissionRepository;
 import com.devsam.urbantrend.Repository.UserRepository;
@@ -27,6 +29,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -42,6 +45,7 @@ class AuthServiceTest {
     @Mock private OtpService otpService;
     @Mock private LogoutCheckRepository logoutCheckRepository;
     @Mock private AuthCache authCache;
+    @Mock private AuthSessionRepository authSessionRepository;
 
     @Captor private ArgumentCaptor<Map<String, Object>> profileCaptor;
 
@@ -51,7 +55,7 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         service = new AuthService(userRepository, passwordEncoder, jwtService,
-                userPermissionRepository, otpService, logoutCheckRepository, authCache);
+                userPermissionRepository, otpService, logoutCheckRepository, authCache, authSessionRepository);
 
         jane = User.builder()
                 .firstName("Jane")
@@ -99,9 +103,9 @@ class AuthServiceTest {
         when(userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull("jane@example.com"))
                 .thenReturn(Optional.of(jane));
         when(otpService.verifyOtp("0712345678", "123456")).thenReturn(true);
-        when(jwtService.generateAccessToken(eq("jane@example.com"), eq("STAFF"), anyList(), anyMap()))
+        when(jwtService.generateAccessToken(eq("jane@example.com"), eq("STAFF"), anyList(), anyMap(), any(UUID.class)))
                 .thenReturn("access");
-        when(jwtService.generateRefreshToken("jane@example.com")).thenReturn("refresh");
+        when(jwtService.generateRefreshToken(eq("jane@example.com"), any(UUID.class))).thenReturn("refresh");
 
         AuthResponse response = service.verifyOtp(" JANE@example.com", "123456");
 
@@ -130,13 +134,13 @@ class AuthServiceTest {
         when(userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull("jane@example.com"))
                 .thenReturn(Optional.of(jane));
         when(otpService.verifyOtp("0712345678", "123456")).thenReturn(true);
-        when(jwtService.generateAccessToken(eq("jane@example.com"), eq("STAFF"), anyList(), anyMap()))
+        when(jwtService.generateAccessToken(eq("jane@example.com"), eq("STAFF"), anyList(), anyMap(), any(UUID.class)))
                 .thenReturn("access");
 
         service.verifyOtp("jane@example.com", "123456");
 
         verify(jwtService).generateAccessToken(
-                eq("jane@example.com"), eq("STAFF"), anyList(), profileCaptor.capture());
+                eq("jane@example.com"), eq("STAFF"), anyList(), profileCaptor.capture(), any(UUID.class));
         assertThat(profileCaptor.getValue())
                 .containsEntry("id", jane.getId().toString())
                 .containsEntry("name", "Jane Doe")
@@ -211,5 +215,57 @@ class AuthServiceTest {
                 .thenReturn("new-access");
 
         assertThat(service.refresh("new").getAccessToken()).isEqualTo("new-access");
+    }
+
+    @Test
+    void loggingOutOneSessionLeavesTheOthersSignedIn() {
+        UUID phone = UUID.randomUUID();
+        UUID laptop = UUID.randomUUID();
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        AuthSession phoneSession = new AuthSession(phone, jane.getId(), now, now.plusDays(7), null);
+        AuthSession laptopSession = new AuthSession(laptop, jane.getId(), now, now.plusDays(7), null);
+        when(userRepository.findByEmail("jane@example.com")).thenReturn(Optional.of(jane));
+        when(authSessionRepository.findById(phone)).thenReturn(Optional.of(phoneSession));
+        when(authSessionRepository.findById(laptop)).thenReturn(Optional.of(laptopSession));
+
+        service.logout("jane@example.com", phone);
+
+        assertThat(phoneSession.getRevokedAt()).isNotNull();
+        assertThat(laptopSession.getRevokedAt()).isNull();
+        assertThat(jane.getLastLogoutAt()).isNull();
+    }
+
+    @Test
+    void refreshFailsOnceItsSessionIsRevoked() {
+        UUID sid = UUID.randomUUID();
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        AuthSession revoked = new AuthSession(sid, jane.getId(), now.minusDays(1), now.plusDays(6), now);
+        when(jwtService.isTokenValid("r")).thenReturn(true);
+        when(jwtService.isRefreshToken("r")).thenReturn(true);
+        when(jwtService.extractEmail("r")).thenReturn("jane@example.com");
+        when(jwtService.extractSessionId("r")).thenReturn(sid);
+        when(userRepository.findByEmailAndDeletedAtIsNull("jane@example.com")).thenReturn(Optional.of(jane));
+        when(authSessionRepository.findById(sid)).thenReturn(Optional.of(revoked));
+
+        assertThatThrownBy(() -> service.refresh("r")).isInstanceOf(BadCredentialsException.class);
+    }
+
+    @Test
+    void refreshWorksWhileItsSessionIsActiveEvenIfAnotherDeviceLoggedOut() {
+        UUID sid = UUID.randomUUID();
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        AuthSession active = new AuthSession(sid, jane.getId(), now.minusDays(1), now.plusDays(6), null);
+        jane.setLastLogoutAt(now.minusMinutes(1));
+        when(jwtService.isTokenValid("r")).thenReturn(true);
+        when(jwtService.isRefreshToken("r")).thenReturn(true);
+        when(jwtService.extractEmail("r")).thenReturn("jane@example.com");
+        when(jwtService.extractSessionId("r")).thenReturn(sid);
+        when(userRepository.findByEmailAndDeletedAtIsNull("jane@example.com")).thenReturn(Optional.of(jane));
+        when(authSessionRepository.findById(sid)).thenReturn(Optional.of(active));
+        when(userPermissionRepository.findByUserId(jane.getId())).thenReturn(List.of());
+        when(jwtService.generateAccessToken(eq("jane@example.com"), eq("STAFF"), anyList(), anyMap(), eq(sid)))
+                .thenReturn("new-access");
+
+        assertThat(service.refresh("r").getAccessToken()).isEqualTo("new-access");
     }
 }

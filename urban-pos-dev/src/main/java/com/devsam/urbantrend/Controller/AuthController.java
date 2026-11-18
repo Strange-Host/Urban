@@ -4,6 +4,7 @@ import com.devsam.urbantrend.Dtos.*;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Repository.UserRepository;
 import com.devsam.urbantrend.Roles.UserRole;
+import com.devsam.urbantrend.Security.Jwt.JwtService;
 import com.devsam.urbantrend.Service.Auth.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final UserRepository userRepository;
+    private final JwtService jwtService;
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
@@ -105,15 +107,23 @@ public class AuthController {
     @PostMapping("/logout")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<String> logout(
-            @AuthenticationPrincipal UserDetails userDetails
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
         if (userDetails == null) {
             return ResponseEntity.status(200).body("Session already cleared");
         }
 
-        authService.logout(userDetails.getUsername());
+        authService.logout(userDetails.getUsername(), sessionIdFrom(authorization));
         return ResponseEntity.ok("Logged out successfully");
     }
+    private UUID sessionIdFrom(String authorization) {
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            return null;
+        }
+        return jwtService.extractSessionId(authorization.substring(7));
+    }
+
     private User getUser(UserDetails userDetails) {
         return userRepository.findByEmailAndDeletedAtIsNull(userDetails.getUsername())
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));

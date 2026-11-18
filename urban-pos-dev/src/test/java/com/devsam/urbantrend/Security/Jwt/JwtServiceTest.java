@@ -59,6 +59,26 @@ class JwtServiceTest {
     }
 
     @Test
+    void bothTokensCarryTheDeviceSessionId() {
+        java.util.UUID sid = java.util.UUID.randomUUID();
+
+        String access = jwtService.generateAccessToken(
+                "jane@example.com", "STAFF", List.of("ROLE_STAFF"), Map.of(), sid);
+        String refresh = jwtService.generateRefreshToken("jane@example.com", sid);
+
+        assertThat(jwtService.extractSessionId(access)).isEqualTo(sid);
+        assertThat(jwtService.extractSessionId(refresh)).isEqualTo(sid);
+    }
+
+    @Test
+    void tokensWithoutASessionReportNone() {
+        String token = jwtService.generateRefreshToken("jane@example.com");
+
+        assertThat(jwtService.extractSessionId(token)).isNull();
+        assertThat(jwtService.extractSessionId("not-a-token")).isNull();
+    }
+
+    @Test
     void refreshTokenIsNotAcceptedAsAnAccessToken() {
         String token = jwtService.generateRefreshToken("jane@example.com");
 

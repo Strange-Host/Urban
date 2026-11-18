@@ -1,11 +1,13 @@
 package com.devsam.urbantrend.Service.Auth;
 
 import com.devsam.urbantrend.Dtos.*;
+import com.devsam.urbantrend.Entity.AuthSession;
 import com.devsam.urbantrend.Entity.LogoutCheck;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Entity.UserPermission;
 import com.devsam.urbantrend.Enum.Permission;
 import com.devsam.urbantrend.Errors.ResourceNotFoundException;
+import com.devsam.urbantrend.Repository.AuthSessionRepository;
 import com.devsam.urbantrend.Repository.LogoutCheckRepository;
 import com.devsam.urbantrend.Repository.UserPermissionRepository;
 import com.devsam.urbantrend.Repository.UserRepository;
@@ -41,6 +43,7 @@ public class AuthService {
     private final OtpService otpService;
     private final LogoutCheckRepository logoutCheckRepository;
     private final AuthCache authCache;
+    private final AuthSessionRepository authSessionRepository;
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
@@ -58,7 +61,7 @@ public class AuthService {
                 || request.getFirstName() == null || request.getFirstName().isBlank()
                 || request.getPhoneNumber() == null || request.getPhoneNumber().isBlank()
                 || request.getRole() == null) {
-            throw new IllegalArgumentException("firstName, lastName, email, phoneNumber, password and role are required");
+            throw new IllegalArgumentException("firstName, email, phoneNumber, password and role are required");
         }
 
         PasswordPolicy.require(request.getPassword());
@@ -71,7 +74,7 @@ public class AuthService {
 
         User user = User.builder()
                 .firstName(request.getFirstName())
-                .lastName(request.getLastName())
+                .lastName(request.getLastName() == null ? "" : request.getLastName().trim())
                 .email(email)
                 .phoneNumber(request.getPhoneNumber())
                 .role(request.getRole())
@@ -169,20 +172,29 @@ public class AuthService {
         User user = userRepository.findByEmailAndDeletedAtIsNull(email)
                 .orElseThrow(() -> new BadCredentialsException("Invalid refresh token"));
 
-        // Refresh tokens are not tied to a single stored value, so a second login (another
-        // device, a shared terminal) no longer signs the first session out. A token stays valid
-        // until it expires or the user logs out, which revokes everything issued before it.
-        Date issuedAt = jwtService.extractIssuedAt(refreshToken);
-        if (issuedAt == null || isRevokedByLogout(user, issuedAt)) {
-            throw new BadCredentialsException("Refresh token expired or invalid");
+        // Each device has its own session. A refresh token is valid while its session is, so
+        // logging out on one device ends only that device's session.
+        UUID sessionId = jwtService.extractSessionId(refreshToken);
+        if (sessionId != null) {
+            AuthSession session = authSessionRepository.findById(sessionId).orElse(null);
+            if (session == null || !session.getUserId().equals(user.getId())
+                    || !session.isActive(LocalDateTime.now())) {
+                throw new BadCredentialsException("Refresh token expired or invalid");
+            }
+        } else {
+            // Tokens issued before sessions existed: they can only be ended by the old
+            // "log out everywhere" rule, and they die on their own within the refresh lifetime.
+            Date issuedAt = jwtService.extractIssuedAt(refreshToken);
+            if (issuedAt == null || isRevokedByLogout(user, issuedAt)) {
+                throw new BadCredentialsException("Refresh token expired or invalid");
+            }
         }
 
-        String newAccessToken = jwtService.generateAccessToken(
-                email,
-                user.getRole().name(),
-                buildAuthorities(user),
-                profileClaims(user)
-        );
+        String newAccessToken = sessionId == null
+                ? jwtService.generateAccessToken(email, user.getRole().name(),
+                        buildAuthorities(user), profileClaims(user))
+                : jwtService.generateAccessToken(email, user.getRole().name(),
+                        buildAuthorities(user), profileClaims(user), sessionId);
 
         return new AuthResponse(newAccessToken, refreshToken, "SUCCESS");
     }
@@ -247,6 +259,7 @@ public class AuthService {
 
         String originalEmail = user.getEmail();
 
+        authSessionRepository.revokeAllForUser(user.getId(), LocalDateTime.now());
         user.setDeletedAt(LocalDateTime.now());
         user.setRefreshToken(null);
         user.setRefreshTokenExpiry(null);
@@ -261,6 +274,30 @@ public class AuthService {
     private static String releasedEmail(UUID id, String email) {
         String tombstone = "deleted-" + id.toString().substring(0, 8) + "-" + email;
         return tombstone.length() > 255 ? tombstone.substring(0, 255) : tombstone;
+    }
+
+    /**
+     * Ends one device's session. With a session id only that session is revoked; without one
+     * (a token issued before sessions existed) the old behaviour applies and every older
+     * refresh token for the user is revoked.
+     */
+    @Transactional
+    public void logout(String email, UUID sessionId) {
+        if (sessionId != null) {
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+            authSessionRepository.findById(sessionId)
+                    .filter(s -> s.getUserId().equals(user.getId()))
+                    .ifPresent(s -> {
+                        if (s.getRevokedAt() == null) {
+                            s.setRevokedAt(LocalDateTime.now());
+                            authSessionRepository.save(s);
+                        }
+                    });
+            SecurityContextHolder.clearContext();
+            return;
+        }
+        logout(email);
     }
 
     @Transactional
@@ -292,18 +329,22 @@ public class AuthService {
 
         List<String> authorities = buildAuthorities(user);
 
+        AuthSession session = new AuthSession(UUID.randomUUID(), user.getId(),
+                LocalDateTime.now(), LocalDateTime.now().plusDays(7), null);
+        authSessionRepository.save(session);
+
         String accessToken = jwtService.generateAccessToken(
                 user.getEmail(),
                 user.getRole().name(),
                 authorities,
-                profileClaims(user)
+                profileClaims(user),
+                session.getId()
         );
 
-        String refreshToken = jwtService.generateRefreshToken(user.getEmail());
-
+        String refreshToken = jwtService.generateRefreshToken(user.getEmail(), session.getId());
 
         user.setRefreshToken(refreshToken);
-        user.setRefreshTokenExpiry(LocalDateTime.now().plusDays(7));
+        user.setRefreshTokenExpiry(session.getExpiresAt());
         user.setLastLoginAt(LocalDateTime.now());
 
         userRepository.save(user);
