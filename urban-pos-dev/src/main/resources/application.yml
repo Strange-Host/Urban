@@ -66,3 +66,19 @@ app:
 
 server:
   port: 8080
+
+# The API description is only served when SWAGGER_ENABLED=true (local development).
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:false}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

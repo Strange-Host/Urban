@@ -70,6 +70,8 @@ public class SecurityConfig {
                                 "/api/v1/shopify/**",
                                 "/api/v1/leads"
                         ).permitAll()
+                        // Hosting health checks must work without a token; details stay hidden.
+                        .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
