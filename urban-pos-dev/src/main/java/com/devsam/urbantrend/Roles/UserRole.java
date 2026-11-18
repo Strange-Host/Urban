@@ -17,12 +17,15 @@ public enum UserRole {
             Permission.CAN_CREATE_LEADS,
             Permission.CAN_UPDATE_LEAD_STATUS,
             Permission.CAN_CONVERT_LEADS,
+            Permission.CAN_ASSIGN_LEADS,
             // Orders
             Permission.CAN_VIEW_ORDERS,
             Permission.CAN_CREATE_ORDERS,
             Permission.CAN_UPDATE_ORDER_STATUS,
             Permission.CAN_VIEW_ORDER_SUMMARY,
             Permission.CAN_VIEW_TOP_SELLING,
+            // Couriers (view only; managing couriers stays an admin grant)
+            Permission.CAN_VIEW_COURIERS,
             // Products
             Permission.CAN_VIEW_PRODUCTS,
             Permission.CAN_CREATE_PRODUCTS,
@@ -64,7 +67,8 @@ public enum UserRole {
             // Reports
             Permission.CAN_VIEW_PROFIT_REPORT,
             // Staff
-            Permission.CAN_VIEW_STAFF
+            Permission.CAN_VIEW_STAFF,
+            Permission.CAN_VIEW_STAFF_LOGS
     )),
 
     STAFF(Set.of(
