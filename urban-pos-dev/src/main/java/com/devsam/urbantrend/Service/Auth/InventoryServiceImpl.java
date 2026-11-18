@@ -140,6 +140,21 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
+    public void ensureAvailableIfTracked(InventoryRequest request) {
+
+        if (request.getQuantity() == null || request.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Quantity must be greater than zero");
+        }
+
+        inventoryRepository.findByProductId(request.getProductId())
+                .ifPresent(inventory -> {
+                    if (inventory.getQuantity().compareTo(request.getQuantity()) < 0) {
+                        throw insufficient(inventory, request.getQuantity());
+                    }
+                });
+    }
+
+    @Override
     public void increaseIfTracked(InventoryRequest request) {
 
         inventoryRepository.findByProductIdForUpdate(request.getProductId())

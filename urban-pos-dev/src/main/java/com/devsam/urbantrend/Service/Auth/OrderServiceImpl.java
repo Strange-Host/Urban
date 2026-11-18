@@ -101,6 +101,22 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalArgumentException("Discount cannot exceed order total of " + rawTotal);
         }
 
+        // Counter sales deduct stock straight away and fail there if it is short. Online
+        // orders deduct at dispatch, so check availability now rather than accept an order
+        // that can never be dispatched. This does not reserve stock; dispatch still locks
+        // and re-checks.
+        if (req.getOrderType() == OrderType.ONLINE) {
+            Map<UUID, BigDecimal> requested = new java.util.LinkedHashMap<>();
+            for (OrderItemRequest itemReq : req.getItems()) {
+                requested.merge(itemReq.getProductId(), itemReq.getQuantity(), BigDecimal::add);
+            }
+            requested.forEach((productId, quantity) ->
+                    inventoryService.ensureAvailableIfTracked(InventoryRequest.builder()
+                            .productId(productId)
+                            .quantity(quantity)
+                            .build()));
+        }
+
 
         BigDecimal totalAfterDiscount = rawTotal.subtract(discount);
         BigDecimal finalTotal = totalAfterDiscount.add(deliveryFee);

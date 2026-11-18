@@ -109,4 +109,31 @@ class InventoryServiceImplTest {
 
         assertThat(inventory.getQuantity()).isEqualByComparingTo("0");
     }
+    @Test
+    void availabilityCheckNamesTheProductWhenStockIsShort() {
+        when(inventoryRepository.findByProductId(product.getId())).thenReturn(Optional.of(inventory));
+
+        assertThatThrownBy(() -> service.ensureAvailableIfTracked(request(product.getId(), "4")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Insufficient stock for Leather Wallet: 3 available, 4 needed");
+        assertThat(inventory.getQuantity()).isEqualByComparingTo("3");
+    }
+
+    @Test
+    void availabilityCheckPassesForEnoughStockAndDoesNotChangeIt() {
+        when(inventoryRepository.findByProductId(product.getId())).thenReturn(Optional.of(inventory));
+
+        service.ensureAvailableIfTracked(request(product.getId(), "3"));
+
+        assertThat(inventory.getQuantity()).isEqualByComparingTo("3");
+        verify(inventoryRepository, never()).save(any(Inventory.class));
+    }
+
+    @Test
+    void availabilityCheckIgnoresProductsWithoutAnInventoryRecord() {
+        UUID untracked = UUID.randomUUID();
+        when(inventoryRepository.findByProductId(untracked)).thenReturn(Optional.empty());
+
+        service.ensureAvailableIfTracked(request(untracked, "100"));
+    }
 }

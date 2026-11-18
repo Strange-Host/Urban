@@ -20,6 +20,9 @@ public interface InventoryService {
 
     void reduceIfTracked(InventoryRequest request);
 
+    /** Fails with a named "Insufficient stock" error if a tracked product has less than requested. Does not change stock. */
+    void ensureAvailableIfTracked(InventoryRequest request);
+
     void increaseIfTracked(InventoryRequest request);
 
     List<Inventory> getLowStock();

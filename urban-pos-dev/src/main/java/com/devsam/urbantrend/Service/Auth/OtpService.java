@@ -6,6 +6,8 @@ import com.devsam.urbantrend.Service.Auth.Messaging.MessagingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -17,7 +19,8 @@ public class OtpService {
 
     private final MessagingService messagingService;
 
-    // ⚠️ In production → replace with Redis
+    // Held in memory: codes are lost on restart and are not shared between servers
+    // (documented limitation M6). Attempt counting is atomic per phone number.
     private final Map<String, OtpData> otpStorage = new ConcurrentHashMap<>();
     private final Map<String, LocalDateTime> lastSentAt = new ConcurrentHashMap<>();
 
@@ -56,32 +59,34 @@ public class OtpService {
 
     public boolean verifyOtp(String phoneNumber, String inputOtp) {
 
-        OtpData data = otpStorage.get(phoneNumber);
-
-        if (data == null) {
+        if (phoneNumber == null) {
             return false;
         }
 
-        // ⏱️ Expiry check
-        if (data.getExpiry().isBefore(LocalDateTime.now())) {
-            otpStorage.remove(phoneNumber);
-            return false;
-        }
+        // The check, the attempt count and the removal all happen inside one atomic
+        // per-key operation, so parallel guesses cannot each read the same attempt count
+        // and slip past the limit.
+        boolean[] verified = {false};
+        LocalDateTime now = LocalDateTime.now();
 
-        // 🚫 Attempt limit
-        if (data.getAttempts() >= MAX_ATTEMPTS) {
-            otpStorage.remove(phoneNumber);
-            return false;
-        }
+        otpStorage.computeIfPresent(phoneNumber, (key, data) -> {
+            if (data.getExpiry().isBefore(now) || data.getAttempts() >= MAX_ATTEMPTS) {
+                return null;
+            }
 
-        // ❌ Wrong OTP
-        if (inputOtp == null || !data.getOtp().equals(inputOtp)) {
+            boolean matches = inputOtp != null && MessageDigest.isEqual(
+                    data.getOtp().getBytes(StandardCharsets.UTF_8),
+                    inputOtp.getBytes(StandardCharsets.UTF_8));
+
+            if (matches) {
+                verified[0] = true;
+                return null;
+            }
+
             data.setAttempts(data.getAttempts() + 1);
-            return false;
-        }
+            return data;
+        });
 
-        // ✅ Success
-        otpStorage.remove(phoneNumber);
-        return true;
+        return verified[0];
     }
 }
