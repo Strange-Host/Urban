@@ -12,6 +12,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -45,7 +47,7 @@ public class RequisitionController {
     @GetMapping("/mine")
     @PreAuthorize("hasAuthority('CAN_VIEW_OWN_REQUISITIONS')")
     public Page<RequisitionResponse> mine(
-            Pageable pageable,
+            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         return requisitionService.getMine(me(userDetails), pageable)
@@ -56,7 +58,7 @@ public class RequisitionController {
     @PreAuthorize("hasAuthority('CAN_VIEW_REQUISITIONS')")
     public Page<RequisitionResponse> all(
             @RequestParam(required = false) RequisitionStatus status,
-            Pageable pageable,
+            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User user = me(userDetails);

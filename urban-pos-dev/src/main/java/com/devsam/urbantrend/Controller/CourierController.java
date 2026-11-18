@@ -9,6 +9,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -36,7 +38,7 @@ public class CourierController {
     public ResponseEntity<Page<CourierResponse>> getAllCouriers(
             @RequestParam(defaultValue = "false") boolean activeOnly,
             @RequestParam(required = false) String query,
-            Pageable pageable
+            @PageableDefault(sort = "name", direction = Sort.Direction.ASC) Pageable pageable
     ) {
         return ResponseEntity.ok(courierService.getAll(pageable, activeOnly, query));
     }
