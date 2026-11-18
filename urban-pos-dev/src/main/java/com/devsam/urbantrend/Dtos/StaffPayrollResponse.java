@@ -19,5 +19,15 @@ public class StaffPayrollResponse {
     private long daysWorked;
     private BigDecimal dailySalary;
 
+    /** Everything earned in the period: commission plus daily pay, before advances. */
     private BigDecimal totalPayable;
+
+    /** Salary advances paid out to this person during the period. */
+    private BigDecimal salaryAdvances;
+
+    /**
+     * What is still owed: {@code totalPayable - salaryAdvances}. Negative when the person was
+     * advanced more than they earned in the period (the difference is carried to the next one).
+     */
+    private BigDecimal netPayable;
 }

@@ -177,6 +177,16 @@ Chronological record of the audit, fixes, refactors and test work. Commits are o
 
 "Guarded" means the migration logs a notice and skips the index instead of failing the deployment when legacy data or extensions make it impossible.
 
+## Bug-report Phase 5 - time, payroll and profit (#3, #25, #52, M12, #24)
+
+- **Timezone (#3).** The JVM default zone is set to `Africa/Nairobi` at start-up (`AppTimeZone`, overridable with `APP_TIMEZONE`). "Today", daily-pay days, weekly payroll windows and CRM follow-up reminders now follow the shop's clock.
+- **`V41__naive_timestamps_to_nairobi.sql`.** Plain `TIMESTAMP` columns (customers, leads, users login/refresh times, staff logs, notifications, couriers, permissions, logout checks, `orders.courier_assigned_at`) held UTC wall-clock time and are moved forward 3 hours so existing rows match the new zone. `TIMESTAMPTZ` columns (orders, payments, requisitions, expenses, advances) are real instants and are untouched. Deploy the new version and run this migration together, with the old UTC instances stopped first.
+- **Payroll weeks (#25).** Weeks are fixed Monday-to-Sunday. The weekly KPI (commission rate) is measured over the whole week even when the range covers only part of it; only paid orders are limited to the range. The same order no longer earns a different commission depending on the dates chosen, and a one-day range no longer gets a one-day KPI.
+- **Salary advances (#52).** Payroll rows gain `salaryAdvances` (advances paid in the period) and `netPayable` (`totalPayable - salaryAdvances`, negative when an advance exceeds earnings). `totalPayable` keeps its meaning: earned, before advances.
+- **Range limit (M12).** Payroll endpoints reject reversed ranges and ranges over 92 days with a 400 and a readable message. The profit report allows up to 366 days because it only needs grouped totals.
+- **Profit report (#24).** Adds `staffCommission`, `staffDailyPay`, `staffPay`, `salaryAdvances`, `staffPayOutstanding` and `netAfterPay` (`netProfit - staffPay`). Advances are shown but not deducted again, because they prepay staff pay and never post to `expenses`.
+- **Frontend.** New Payroll page (`/payroll`, Finance menu) for anyone with `CAN_VIEW_PAYROLL_SUMMARY` (everyone) or `CAN_VIEW_OWN_PAYROLL` (own row only); the dashboard shows staff pay and profit after staff pay.
+
 ## Known limitations and next steps
 
 - **Migrations are not exercised by tests.** The H2 profile disables Flyway and uses `create-drop`, so V34-V37 must be validated against a real PostgreSQL copy before deploying.

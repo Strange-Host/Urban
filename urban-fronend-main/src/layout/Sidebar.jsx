@@ -71,6 +71,7 @@ export default function Sidebar({ onClose, mobile = false, onShowLogoutModal }) 
           items: section.items.filter(
             (item) =>
               (!item.permission || can(item.permission)) &&
+              (!item.anyPermission || item.anyPermission.some((p) => can(p))) &&
               (!item.adminOnly || user?.role === "ADMIN")
           ),
         })).filter((section) => section.items.length > 0).map((section) => (

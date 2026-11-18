@@ -1,5 +1,6 @@
 package com.devsam.urbantrend.Service.Auth;
 
+import com.devsam.urbantrend.Dtos.PayrollTotalsResponse;
 import com.devsam.urbantrend.Dtos.ProfitReportResponse;
 import com.devsam.urbantrend.Enum.OrderStatus;
 import com.devsam.urbantrend.Repository.ExpenseRepository;
@@ -27,6 +28,7 @@ public class ReportServiceImpl implements ReportService {
     private final OrderItemRepository orderItemRepository;
     private final ExpenseRepository expenseRepository;
     private final OrderRepository orderRepository;
+    private final PayrollService payrollService;
 
     @Override
     public ProfitReportResponse getProfitReport(LocalDateTime from, LocalDateTime to) {
@@ -51,12 +53,25 @@ public class ReportServiceImpl implements ReportService {
 
         BigDecimal netProfit = grossProfit.subtract(expenses);
 
+        // Staff pay (commission and daily pay) is a real cost of running the shop that never
+        // went through the expenses table, so profit used to be overstated. Salary advances are
+        // a prepayment of that pay, not extra cost, so they are shown but not deducted again.
+        PayrollTotalsResponse pay = payrollService.getPayrollTotals(from.toLocalDate(), to.toLocalDate());
+        BigDecimal staffPay = pay.getStaffPay();
+        BigDecimal salaryAdvances = pay.getSalaryAdvances();
+
         return ProfitReportResponse.builder()
                 .revenue(revenue)
                 .cogs(cogs)
                 .grossProfit(grossProfit)
                 .expenses(expenses)
                 .netProfit(netProfit)
+                .staffCommission(pay.getCommission())
+                .staffDailyPay(pay.getDailyPay())
+                .staffPay(staffPay)
+                .salaryAdvances(salaryAdvances)
+                .staffPayOutstanding(staffPay.subtract(salaryAdvances))
+                .netAfterPay(netProfit.subtract(staffPay))
                 .build();
     }
 

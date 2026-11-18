@@ -27,4 +27,15 @@ class DateRangesTest {
     void theRangeStartsAtMidnight() {
         assertThat(DateRanges.startOfDay(day)).isEqualTo(LocalDateTime.of(2026, 11, 18, 0, 0));
     }
+
+    @Test
+    void weeksStartOnMonday() {
+        LocalDate monday = LocalDate.of(2026, 11, 16);
+
+        assertThat(DateRanges.startOfWeek(monday)).isEqualTo(monday);
+        assertThat(DateRanges.startOfWeek(LocalDate.of(2026, 11, 18))).isEqualTo(monday); // Wednesday
+        assertThat(DateRanges.startOfWeek(LocalDate.of(2026, 11, 22))).isEqualTo(monday); // Sunday
+        assertThat(DateRanges.startOfWeek(LocalDate.of(2026, 11, 23)))
+                .isEqualTo(LocalDate.of(2026, 11, 23)); // next Monday starts a new week
+    }
 }

@@ -1,7 +1,9 @@
 package com.devsam.urbantrend.Util;
 
 import java.time.LocalDate;
+import java.time.DayOfWeek;
 import java.time.LocalDateTime;
+import java.time.temporal.TemporalAdjusters;
 
 /**
  * Inclusive day boundaries for {@code BETWEEN} queries. Ending a day at 23:59:59 dropped every
@@ -19,5 +21,10 @@ public final class DateRanges {
 
     public static LocalDateTime endOfDay(LocalDate date) {
         return date.plusDays(1).atStartOfDay().minusNanos(1_000);
+    }
+
+    /** The Monday of the week (Monday to Sunday) that contains the date. */
+    public static LocalDate startOfWeek(LocalDate date) {
+        return date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
     }
 }

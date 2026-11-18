@@ -34,4 +34,10 @@ describe("canAccessPath", () => {
     expect(canAccessPath("/requisitions/new", canOnly("CAN_CREATE_REQUISITIONS"), staff)).toBe(true);
     expect(canAccessPath("/requisitions", canOnly("CAN_VIEW_REQUISITIONS"), staff)).toBe(true);
   });
+
+  it("lets either payroll permission open the payroll page", () => {
+    expect(canAccessPath("/payroll", canOnly(), staff)).toBe(false);
+    expect(canAccessPath("/payroll", canOnly("CAN_VIEW_OWN_PAYROLL"), staff)).toBe(true);
+    expect(canAccessPath("/payroll", canOnly("CAN_VIEW_PAYROLL_SUMMARY"), staff)).toBe(true);
+  });
 });

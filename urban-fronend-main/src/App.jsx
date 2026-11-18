@@ -21,6 +21,7 @@ const CRM = lazy(() => import("./pages/crm"));
 const Courier = lazy(() => import("./pages/Courier"));
 const DispatchScanner = lazy(() => import("./pages/DispatchScanner"));
 const Settings = lazy(() => import("./pages/Settings"));
+const Payroll = lazy(() => import("./pages/Payroll"));
 
 function RouteFallback() {
   return (
@@ -119,6 +120,7 @@ export default function App() {
         <Route path="/products" element={<Product />} />
         <Route path="/payments" element={<Payment />} />
         <Route path="/expenses" element={<Expenses />} />
+        <Route path="/payroll" element={<Payroll />} />
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/staff" element={<Staff />} />
         <Route path="/staff/:id" element={<StaffDetails />} />

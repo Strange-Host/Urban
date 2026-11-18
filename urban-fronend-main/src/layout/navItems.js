@@ -13,6 +13,7 @@ import {
   FiActivity,
   FiMaximize,
   FiSettings,
+  FiBriefcase,
 } from "react-icons/fi";
 
 export const navSections = [
@@ -89,6 +90,12 @@ export const navSections = [
         label: "Expenses",
         icon: FiDollarSign,
         permission: "CAN_VIEW_EXPENSES",
+      },
+      {
+        to: "/payroll",
+        label: "Payroll",
+        icon: FiBriefcase,
+        anyPermission: ["CAN_VIEW_PAYROLL_SUMMARY", "CAN_VIEW_OWN_PAYROLL"],
       },
     ],
   },

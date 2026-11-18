@@ -22,3 +22,25 @@ export function startOfDayIso(date) {
 export function endOfDayIso(date) {
   return `${date}T23:59:59.999999`;
 }
+
+// Payroll weeks run Monday to Sunday, matching the server.
+export function startOfWeek(date = new Date()) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const sinceMonday = (d.getDay() + 6) % 7; // Sunday is 0 in JS
+  d.setDate(d.getDate() - sinceMonday);
+  return d;
+}
+
+export function addDays(date, days) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+// Inclusive number of calendar days between two YYYY-MM-DD strings.
+export function daysInRange(from, to) {
+  const [fy, fm, fd] = from.split("-").map(Number);
+  const [ty, tm, td] = to.split("-").map(Number);
+  const ms = Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd);
+  return Math.round(ms / 86400000) + 1;
+}

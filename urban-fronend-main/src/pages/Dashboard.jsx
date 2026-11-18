@@ -14,6 +14,7 @@ import {
   FiPackage,
   FiCreditCard,
   FiBarChart2,
+  FiUsers,
 } from "react-icons/fi";
 import { onNotification } from "../utils/notificationBus.js";
 import {
@@ -66,6 +67,11 @@ export default function Dashboard() {
   const [expenses, setExpenses] = useState(0);
   const [netProfit, setNetProfit] = useState(0);
 
+  // Staff pay (commission + daily pay), salary advances and what is left after paying staff
+  const [staffPay, setStaffPay] = useState(0);
+  const [salaryAdvances, setSalaryAdvances] = useState(0);
+  const [netAfterPay, setNetAfterPay] = useState(0);
+
   // Now backed by real API data
   const [topSelling, setTopSelling] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
@@ -78,8 +84,10 @@ export default function Dashboard() {
       { name: "Gross profit", profit: Number(grossProfit || 0) },
       { name: "Expenses", profit: Number(expenses || 0) },
       { name: "Net profit", profit: Number(netProfit || 0) },
+      { name: "Staff pay", profit: Number(staffPay || 0) },
+      { name: "After staff pay", profit: Number(netAfterPay || 0) },
     ],
-    [revenue, cogs, grossProfit, expenses, netProfit]
+    [revenue, cogs, grossProfit, expenses, netProfit, staffPay, netAfterPay]
   );
 
   useEffect(() => {
@@ -156,6 +164,10 @@ export default function Dashboard() {
         setGrossProfit(Number(rep.grossProfit || 0));
         setExpenses(Number(rep.expenses || 0));
         setNetProfit(Number(rep.netProfit || 0));
+        setStaffPay(Number(rep.staffPay || 0));
+        setSalaryAdvances(Number(rep.salaryAdvances || 0));
+        // Older servers do not send the pay figures: fall back to net profit unchanged.
+        setNetAfterPay(Number(rep.netAfterPay ?? rep.netProfit ?? 0));
       }
 
       if (topSellingRes.status === "fulfilled") {
@@ -289,7 +301,7 @@ export default function Dashboard() {
       )}
 
       {/* Stat Cards */}
-      <div className="mb-6 grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="mb-6 grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {!denied.profit && <StatCard title="Revenue" value={money(revenue)} tone="green" icon={FiTrendingUp} />}
         {!denied.orders && (
           <StatCard title="Orders" value={Number(ordersCount).toLocaleString()} tone="blue" icon={FiShoppingBag} />
@@ -299,6 +311,13 @@ export default function Dashboard() {
             <StatCard title="Gross Profit" value={money(grossProfit)} tone="indigo" icon={FiPieChart} />
             <StatCard title="COGS" value={money(cogs)} tone="orange" icon={FiPackage} />
             <StatCard title="Expenses" value={money(expenses)} tone="red" icon={FiCreditCard} />
+            <StatCard
+              title="Staff Pay"
+              value={money(staffPay)}
+              tone="slate"
+              icon={FiUsers}
+              hint={salaryAdvances > 0 ? `${money(salaryAdvances)} already advanced` : undefined}
+            />
           </>
         )}
       </div>
@@ -324,6 +343,16 @@ export default function Dashboard() {
                   }`}
                 >
                   {money(netProfit)}
+                </div>
+              </div>
+              <div className="rounded-xl bg-white/10 px-4 py-3 backdrop-blur">
+                <div className="text-xs font-medium text-slate-300">After Staff Pay</div>
+                <div
+                  className={`mt-0.5 text-xl font-semibold ${
+                    netAfterPay < 0 ? "text-rose-300" : "text-emerald-300"
+                  }`}
+                >
+                  {money(netAfterPay)}
                 </div>
               </div>
             </div>
