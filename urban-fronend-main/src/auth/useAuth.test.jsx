@@ -1,6 +1,7 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { useAuth } from "./useAuth";
+import { TOKEN_CHANGED_EVENT } from "../api/api";
 
 function makeToken(payload) {
   return `header.${btoa(JSON.stringify(payload))}.signature`;
@@ -65,5 +66,27 @@ describe("useAuth", () => {
 
     expect(result.current.isAdmin()).toBe(true);
     expect(result.current.can("CAN_DELETE_ORDERS")).toBe(true);
+  });
+
+  it("picks up new permissions when the token is replaced", () => {
+    localStorage.setItem(
+      "accessToken",
+      makeToken({ sub: "a@urban.test", authorities: ["ROLE_MANAGER", "CAN_VIEW_ORDERS"] })
+    );
+    const { result } = renderHook(() => useAuth());
+    expect(result.current.can("CAN_VIEW_COURIERS")).toBe(false);
+
+    act(() => {
+      localStorage.setItem(
+        "accessToken",
+        makeToken({
+          sub: "a@urban.test",
+          authorities: ["ROLE_MANAGER", "CAN_VIEW_ORDERS", "CAN_VIEW_COURIERS"],
+        })
+      );
+      window.dispatchEvent(new Event(TOKEN_CHANGED_EVENT));
+    });
+
+    expect(result.current.can("CAN_VIEW_COURIERS")).toBe(true);
   });
 });

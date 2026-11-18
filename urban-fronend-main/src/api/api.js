@@ -36,6 +36,8 @@ function clearSessionAndRedirect() {
   }
 }
 
+export const TOKEN_CHANGED_EVENT = "auth-token-changed";
+
 // Single in-flight refresh shared by all queued 401s.
 let refreshPromise = null;
 
@@ -59,6 +61,9 @@ function refreshAccessToken() {
         localStorage.setItem("refreshToken", res.data.refreshToken);
       }
 
+      // Screens read permissions from the token, so tell them a new one is in place.
+      window.dispatchEvent(new Event(TOKEN_CHANGED_EVENT));
+
       return accessToken;
     })
     .finally(() => {
@@ -66,6 +71,19 @@ function refreshAccessToken() {
     });
 
   return refreshPromise;
+}
+
+/**
+ * Background refresh used to pick up permission changes. Unlike the 401 flow it never signs the
+ * user out: a failure here (offline, server restarting) just leaves the current token in place.
+ */
+export async function refreshSessionQuietly() {
+  try {
+    await (refreshPromise || refreshAccessToken());
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // REQUEST INTERCEPTOR

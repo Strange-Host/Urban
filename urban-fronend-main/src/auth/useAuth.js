@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { TOKEN_CHANGED_EVENT } from "../api/api";
 
 function parseJwt(token) {
   try {
@@ -10,6 +11,19 @@ function parseJwt(token) {
 }
 
 export function useAuth() {
+  // The token is still read on every render; this only forces a render when a background
+  // refresh (or another tab) replaces it, so permission changes show up without a re-login.
+  const [, setTokenVersion] = useState(0);
+  useEffect(() => {
+    const onChange = () => setTokenVersion((v) => v + 1);
+    window.addEventListener(TOKEN_CHANGED_EVENT, onChange);
+    window.addEventListener("storage", onChange);
+    return () => {
+      window.removeEventListener(TOKEN_CHANGED_EVENT, onChange);
+      window.removeEventListener("storage", onChange);
+    };
+  }, []);
+
   const token = localStorage.getItem("accessToken");
 
   const user = useMemo(() => {

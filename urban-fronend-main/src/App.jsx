@@ -2,6 +2,7 @@ import React, { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 
 import AppLayout from "./layout/AppLayout";
+import { usePermissionSync } from "./auth/usePermissionSync";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Orders = lazy(() => import("./pages/Orders"));
@@ -73,6 +74,8 @@ function PublicRoute({ children }) {
 }
 
 export default function App() {
+  usePermissionSync();
+
   return (
     <Suspense fallback={<RouteFallback />}>
       <Routes>
