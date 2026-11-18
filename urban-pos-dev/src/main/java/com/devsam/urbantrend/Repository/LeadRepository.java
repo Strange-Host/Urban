@@ -5,13 +5,20 @@ import com.devsam.urbantrend.Entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface LeadRepository extends JpaRepository<Lead, Long> {
     Page<Lead> findAllByStatus(String status, Pageable pageable);
+
+    /** Row-locks the lead so two simultaneous conversions cannot both pass the "already converted" check. */
+    @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT l FROM Lead l WHERE l.id = :id")
+    Optional<Lead> lockById(@org.springframework.data.repository.query.Param("id") Long id);
 
     boolean existsByWpEntryId(Long wpEntryId);
 

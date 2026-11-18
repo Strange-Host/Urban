@@ -40,7 +40,8 @@ public class LeadConversionService {
 
     @Transactional
     public void convertLead(Long leadId, ConvertLeadRequest request, User staffUser) {
-        Lead lead = leadRepository.findById(leadId)
+        // Locked, so a double-click or two staff converting the same lead create one order, not two.
+        Lead lead = leadRepository.lockById(leadId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lead not found"));
 
         if ("CONVERTED".equalsIgnoreCase(lead.getStatus())) {
@@ -102,12 +103,8 @@ public class LeadConversionService {
         if (request.getNotes() != null && !request.getNotes().isBlank()) {
             deliveryNotes.append(request.getNotes().trim());
         }
-        if (lead.getRawData() != null && !lead.getRawData().isBlank()) {
-            if (deliveryNotes.length() > 0) {
-                deliveryNotes.append("\n\n");
-            }
-            deliveryNotes.append("Lead Raw Data: ").append(lead.getRawData());
-        }
+        // The raw lead JSON stays on the lead (linked through convertedOrderId); pasting it into the
+        // delivery notes put machine text on dispatch paperwork.
 
         OrderRequest orderRequest = OrderRequest.builder()
                 .customerId(customer.getId())

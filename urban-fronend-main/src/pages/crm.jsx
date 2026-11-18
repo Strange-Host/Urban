@@ -43,6 +43,7 @@ export default function CRM() {
   const [selectedLead, setSelectedLead] = useState(null);
   const [highlightedLeadId, setHighlightedLeadId] = useState(null);
   const leadRefs = useRef({});
+  const convertingRef = useRef(false);
   const [deliveryCity, setDeliveryCity] = useState("");
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [discount, setDiscount] = useState(0);
@@ -451,6 +452,9 @@ export default function CRM() {
 
   // ── Convert lead ─────────────────────────────────────────────────────────────
   const convertLead = async () => {
+    // A ref, not state: a fast double-click fires twice before state updates re-render.
+    if (convertingRef.current) return;
+    convertingRef.current = true;
     try {
       setConverting(true);
       if (!conversionItems.length || conversionItems.some((item) =>
@@ -506,6 +510,7 @@ export default function CRM() {
         alert(errorMsg);
       }
     } finally {
+      convertingRef.current = false;
       setConverting(false);
     }
   };
