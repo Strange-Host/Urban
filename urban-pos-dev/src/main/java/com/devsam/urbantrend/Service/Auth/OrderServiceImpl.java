@@ -264,15 +264,7 @@ public class OrderServiceImpl implements OrderService {
         if (oldStatus == status) {
             return order;
         }
-        // A "paid" status must be backed by recorded payments, otherwise staff could
-        // mark their own orders paid (which drives commission).
-        if (status == OrderStatus.DISPATCHED_PAID || status == OrderStatus.DELIVERED_PAID) {
-            BigDecimal paid = order.getPaidAmount() != null ? order.getPaidAmount() : BigDecimal.ZERO;
-            if (paid.compareTo(order.getTotalAmount()) < 0) {
-                throw new IllegalArgumentException(
-                        "Order is not fully paid; record the payment before marking it " + status);
-            }
-        }
+        ensureStatusMatchesPayments(order, status);
 
         order.setOrderStatus(status);
         Order saved = orderRepository.save(order);
@@ -303,6 +295,43 @@ public class OrderServiceImpl implements OrderService {
         }
 
         return saved;
+    }
+
+    /**
+     * A payment-related status must agree with what has actually been recorded. Without this a
+     * fully paid order could be flipped to "unpaid" (or an unpaid one to "paid"/"completed"),
+     * which skews reports and the commission that is paid on paid orders.
+     */
+    private void ensureStatusMatchesPayments(Order order, OrderStatus status) {
+        BigDecimal total = order.getTotalAmount() != null ? order.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal paid = order.getPaidAmount() != null ? order.getPaidAmount() : BigDecimal.ZERO;
+        boolean fullyPaid = paid.compareTo(total) >= 0;
+        boolean nothingPaid = paid.signum() <= 0;
+
+        if (status == OrderStatus.DISPATCHED_PAID
+                || status == OrderStatus.DELIVERED_PAID
+                || status == OrderStatus.COMPLETED) {
+            if (!fullyPaid) {
+                throw new IllegalArgumentException(
+                        "Order is not fully paid; record the payment before marking it " + status);
+            }
+        } else if (status == OrderStatus.DISPATCHED_PARTIAL) {
+            if (nothingPaid || fullyPaid) {
+                throw new IllegalArgumentException(
+                        "DISPATCHED_PARTIAL needs a part payment: "
+                                + (fullyPaid ? "the order is already fully paid" : "nothing has been paid yet"));
+            }
+        } else if (status == OrderStatus.DISPATCHED_UNPAID) {
+            if (!nothingPaid) {
+                throw new IllegalArgumentException(
+                        "Order has payments recorded, so it cannot be marked " + status);
+            }
+        } else if (status == OrderStatus.DELIVERED_UNPAID) {
+            if (fullyPaid) {
+                throw new IllegalArgumentException(
+                        "Order is already fully paid, so it cannot be marked " + status);
+            }
+        }
     }
 
     private void releaseStockUnits(UUID orderId) {
