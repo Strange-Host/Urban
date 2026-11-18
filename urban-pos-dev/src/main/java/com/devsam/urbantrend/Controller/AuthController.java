@@ -81,8 +81,8 @@ public class AuthController {
 
     @DeleteMapping("/user/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public void deleteUser(@PathVariable UUID id) {
-        authService.deleteUserById(id);
+    public void deleteUser(@PathVariable UUID id, @AuthenticationPrincipal UserDetails userDetails) {
+        authService.deleteUserById(id, userDetails == null ? null : userDetails.getUsername());
     }
 
 

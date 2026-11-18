@@ -37,6 +37,7 @@ import {
 } from "../components/styles";
 import { getErrorDetail } from "../utils/errors";
 import { buildStaffRequest } from "../utils/staffForm";
+import { PASSWORD_HINT } from "../utils/passwordRules";
 
 const PERMISSION_GROUPS = {
   "CRM / Leads":  ["CAN_VIEW_LEADS","CAN_CREATE_LEADS","CAN_UPDATE_LEAD_STATUS","CAN_CONVERT_LEADS"],
@@ -438,6 +439,7 @@ export default function Staff() {
                       {showPassword ? <FiEyeOff size={17} /> : <FiEye size={17} />}
                     </button>
                   </div>
+                  <div style={{ marginTop: 6, fontSize: 12, color: "#64748b" }}>{PASSWORD_HINT}</div>
                 </div>
                 <div>
                   <label style={labelStyle}>Role</label>

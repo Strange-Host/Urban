@@ -1,4 +1,5 @@
 import { normalizeKenyanPhone } from "./phone";
+import { PASSWORD_HINT, isAcceptablePassword } from "./passwordRules";
 
 /** Splits "Jane Wanjiku Kamau" into first name and the rest. */
 export function splitName(fullName) {
@@ -29,8 +30,9 @@ export function buildStaffRequest(form) {
     return { error: "Enter a valid Kenyan mobile number, for example 0712 345 678. Login codes are sent to it." };
   }
 
-  if (String(form.password || "").length < 8) {
-    return { error: "Use a password of at least 8 characters." };
+  // Same rule as the server (PasswordPolicy), so the message appears before the request is sent.
+  if (!isAcceptablePassword(form.password)) {
+    return { error: PASSWORD_HINT };
   }
 
   return {

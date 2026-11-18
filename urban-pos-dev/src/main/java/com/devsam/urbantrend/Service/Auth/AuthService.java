@@ -9,7 +9,9 @@ import com.devsam.urbantrend.Errors.ResourceNotFoundException;
 import com.devsam.urbantrend.Repository.LogoutCheckRepository;
 import com.devsam.urbantrend.Repository.UserPermissionRepository;
 import com.devsam.urbantrend.Repository.UserRepository;
+import com.devsam.urbantrend.Roles.UserRole;
 import com.devsam.urbantrend.Security.Jwt.JwtService;
+import com.devsam.urbantrend.Util.PasswordPolicy;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -55,6 +57,8 @@ public class AuthService {
                 || request.getRole() == null) {
             throw new IllegalArgumentException("firstName, lastName, email, phoneNumber, password and role are required");
         }
+
+        PasswordPolicy.require(request.getPassword());
 
         String email = normalizeEmail(request.getEmail());
 
@@ -199,18 +203,48 @@ public class AuthService {
     }
 
     public void deleteUserById(UUID id) {
+        deleteUserById(id, null);
+    }
+
+    /**
+     * Soft-deletes a staff account. An admin cannot delete their own account, and the last
+     * active admin can never be deleted, otherwise nobody could manage the system any more.
+     * The deleted account's email is released so it can be used for a new account.
+     */
+    @Transactional
+    public void deleteUserById(UUID id, String actingEmail) {
 
         User user = userRepository.findById(id)
+                .filter(found -> found.getDeletedAt() == null)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("User with id " + id + " not found")
                 );
 
+        if (actingEmail != null && actingEmail.equalsIgnoreCase(user.getEmail())) {
+            throw new IllegalArgumentException("You cannot delete your own account");
+        }
+
+        if (user.getRole() == UserRole.ADMIN
+                && userRepository.countByRoleAndDeletedAtIsNull(UserRole.ADMIN) <= 1) {
+            throw new IllegalArgumentException("The last admin account cannot be deleted");
+        }
+
+        String originalEmail = user.getEmail();
+
         user.setDeletedAt(LocalDateTime.now());
         user.setRefreshToken(null);
         user.setRefreshTokenExpiry(null);
+        user.setEmail(releasedEmail(user.getId(), originalEmail));
         userRepository.save(user);
 
-        authCache.evict(user.getEmail());
+        authCache.evict(originalEmail);
+    }
+
+    // Emails are unique across all rows, deleted ones included, so a deleted account keeps a
+    // tombstone address and the real one becomes free again.
+    private static String releasedEmail(UUID id, String email) {
+        String tombstone = "deleted-" + id.toString().substring(0, 8) + "-" + email;
+        return tombstone.length() > 255 ? tombstone.substring(0, 255) : tombstone;
     }
 
     @Transactional

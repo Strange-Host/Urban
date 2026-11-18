@@ -5,7 +5,7 @@ const valid = {
   fullName: "Jane Wanjiku",
   email: " Jane@Company.com ",
   phone: "0712 345 678",
-  password: "longenough",
+  password: "longenough1",
   role: "STAFF",
 };
 
@@ -16,7 +16,7 @@ describe("buildStaffRequest", () => {
       lastName: "Wanjiku",
       email: "jane@company.com",
       phoneNumber: "0712345678",
-      password: "longenough",
+      password: "longenough1",
       role: "STAFF",
     });
   });
@@ -34,5 +34,6 @@ describe("buildStaffRequest", () => {
     expect(buildStaffRequest({ ...valid, email: "jane" }).error).toContain("email");
     expect(buildStaffRequest({ ...valid, phone: "12345" }).error).toContain("Kenyan mobile");
     expect(buildStaffRequest({ ...valid, password: "short" }).error).toContain("8 characters");
+    expect(buildStaffRequest({ ...valid, password: "onlyletters" }).error).toContain("a letter and a number");
   });
 });

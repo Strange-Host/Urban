@@ -19,6 +19,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     boolean existsByRole(UserRole userRole);
 
+    long countByRoleAndDeletedAtIsNull(UserRole role);
+
     boolean existsByEmail(String email);
 
     // Emails are stored lower-case, but people type them however they like.

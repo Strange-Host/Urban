@@ -31,7 +31,7 @@ public class User extends BaseEntity {
     private String phoneNumber;
 
     @JsonIgnore
-    @Column(name = "refresh_token")
+    @Column(name = "refresh_token", columnDefinition = "TEXT")
     private String refreshToken;
 
 
