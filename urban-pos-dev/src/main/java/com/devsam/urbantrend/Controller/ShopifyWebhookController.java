@@ -4,6 +4,8 @@ import com.devsam.urbantrend.Service.Auth.ShopifyService;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -19,11 +21,16 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/shopify")
 @RequiredArgsConstructor
 public class ShopifyWebhookController {
+
+    private static final Logger log = LoggerFactory.getLogger(ShopifyWebhookController.class);
+
+    private static final Set<String> CREATING_TOPICS = Set.of("orders/create", "orders/paid");
 
     private final ShopifyService shopifyService;
     private final ObjectMapper objectMapper;
@@ -52,6 +59,14 @@ public class ShopifyWebhookController {
 
         if (topic == null || !topic.startsWith("orders/")) {
             throw new IllegalArgumentException("Unsupported Shopify webhook topic: " + topic);
+        }
+
+        // Only a newly placed (or newly paid) order becomes a lead. Edits, fulfilments and
+        // cancellations of orders are acknowledged and ignored, otherwise an update event for an
+        // order we never saw would create a lead for it. A 200 stops Shopify from retrying.
+        if (!CREATING_TOPICS.contains(topic)) {
+            log.info("Ignoring Shopify webhook topic {}", topic);
+            return ResponseEntity.ok().build();
         }
 
         Map<String, Object> payload;

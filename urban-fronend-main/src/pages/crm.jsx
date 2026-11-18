@@ -516,14 +516,14 @@ export default function CRM() {
   };
 
   // ── Create manual lead ───────────────────────────────────────────────────────
-  const createManualLead = async () => {
+  const createManualLead = async (allowDuplicate = false) => {
     if (!newLead.name.trim() || !newLead.phoneNumber.trim()) {
       alert("Name and phone number are required");
       return;
     }
     try {
       setSavingLead(true);
-      await api.post("/api/v1/leads/manual", newLead);
+      await api.post("/api/v1/leads/manual", { ...newLead, allowDuplicate });
       setShowAddLeadModal(false);
       setNewLead({
         name: "", phoneNumber: "", alternativePhoneNumber: "",
@@ -540,6 +540,13 @@ export default function CRM() {
         setToasts((prev) => prev.filter((t) => t.id !== successToast.id));
       }, 4000);
     } catch (err) {
+      if (err?.response?.status === 409 && !allowDuplicate) {
+        setSavingLead(false);
+        if (window.confirm(`${getErrorDetail(err, "An open lead with this phone number already exists.")}`)) {
+          await createManualLead(true);
+        }
+        return;
+      }
       console.error("Failed to create lead", err);
       alert(getErrorDetail(err, "Failed to create lead"));
     } finally {
@@ -742,7 +749,7 @@ export default function CRM() {
           loadingLeadProducts={loadingLeadProducts}
           leadProductsError={leadProductsError}
           savingLead={savingLead}
-          onCreate={createManualLead}
+          onCreate={() => createManualLead(false)}
           onClose={() => setShowAddLeadModal(false)}
         />
       )}

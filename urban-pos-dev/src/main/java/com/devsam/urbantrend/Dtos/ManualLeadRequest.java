@@ -16,4 +16,6 @@ public class ManualLeadRequest {
     private String notes;
     private String source;
     private Map<String, Object> productOptions;
+    /** Set after the user confirmed that a second open lead for the same phone is intended. */
+    private Boolean allowDuplicate;
 }

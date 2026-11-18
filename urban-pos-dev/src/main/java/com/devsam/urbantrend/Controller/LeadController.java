@@ -153,6 +153,16 @@ public class LeadController {
             return ResponseEntity.badRequest().body("Phone number is required");
         }
 
+        // The same person calling twice should not become two open leads by accident. The
+        // client can confirm and resend with allowDuplicate when a second lead is intended.
+        if (!Boolean.TRUE.equals(request.getAllowDuplicate())
+                && repository.existsByPhoneNumberInAndStatusNot(
+                        com.devsam.urbantrend.Util.PhoneNumbers.variants(request.getPhoneNumber()),
+                        "CONVERTED")) {
+            throw new IllegalStateException(
+                    "An open lead with this phone number already exists. Confirm to add another.");
+        }
+
         Lead lead = new Lead();
 
         lead.setName(request.getName());

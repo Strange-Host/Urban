@@ -58,7 +58,7 @@ public class DispatchScanServiceImpl implements DispatchScanService {
 
         long scanned = stockUnitRepository.countByOrderId(order.getId());
         long required = order.getItems().stream()
-                .mapToLong(item -> item.getQuantity().longValue())
+                .mapToLong(DispatchScanServiceImpl::unitsFor)
                 .sum();
 
         boolean complete = order.getItems().stream()
@@ -100,7 +100,7 @@ public class DispatchScanServiceImpl implements DispatchScanService {
 
         long scanned = stockUnitRepository.countByOrderId(orderId);
         long required = order.getItems().stream()
-                .mapToLong(item -> item.getQuantity().longValue())
+                .mapToLong(DispatchScanServiceImpl::unitsFor)
                 .sum();
 
         boolean complete = order.getItems().stream()
@@ -168,10 +168,19 @@ public class DispatchScanServiceImpl implements DispatchScanService {
                         "No order awaiting dispatch needs " + product.getName()));
     }
 
+    /**
+     * Sticker units an order line needs. A fractional quantity (for example 1.5) still has to
+     * be packed in whole units, so it rounds up instead of truncating to fewer units.
+     */
+    static long unitsFor(com.devsam.urbantrend.Entity.OrderItem item) {
+        BigDecimal quantity = item.getQuantity() != null ? item.getQuantity() : BigDecimal.ZERO;
+        return quantity.setScale(0, java.math.RoundingMode.CEILING).longValue();
+    }
+
     private long remainingForProduct(Order order, Product product) {
         long required = order.getItems().stream()
                 .filter(item -> item.getProduct().getId().equals(product.getId()))
-                .mapToLong(item -> item.getQuantity().longValue())
+                .mapToLong(DispatchScanServiceImpl::unitsFor)
                 .sum();
         return required - stockUnitRepository.countByOrderIdAndProduct_Id(order.getId(), product.getId());
     }

@@ -150,6 +150,8 @@ public class ShopifyService {
             lead.setPhoneNumber("UNKNOWN".equals(phone) ? null : phone);
             lead.setLocation(city);
             lead.setFormName(productName);
+            Map<String, String> options = describeLine(item);
+            lead.setProductOptions(options.isEmpty() ? null : toJson(options));
             lead.setStatus("NEW");
             lead.setShopifyOrderId(shopifyOrderId);
 
@@ -167,6 +169,27 @@ public class ShopifyService {
                     name,
                     product == null ? " (product not in DB yet)" : "");
         }
+    }
+
+    /**
+     * What the buyer actually ordered on this line: quantity, variant and SKU, as the JSON object
+     * the CRM already renders for form leads. Without it the lead only shows the product title and
+     * the quantity is lost when the lead is converted.
+     */
+    static Map<String, String> describeLine(Map<String, Object> item) {
+        Map<String, String> options = new java.util.LinkedHashMap<>();
+
+        if (item.get("quantity") instanceof Number number) {
+            options.put("Quantity", String.valueOf(number.longValue()));
+        }
+        if (item.get("variant_title") instanceof String variant && !variant.isBlank()) {
+            options.put("Variant", variant.trim());
+        }
+        if (item.get("sku") instanceof String sku && !sku.isBlank()) {
+            options.put("SKU", sku.trim());
+        }
+
+        return options;
     }
 
     private Map<String, Object> asMap(Object value) {

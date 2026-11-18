@@ -24,6 +24,9 @@ public interface LeadRepository extends JpaRepository<Lead, Long> {
 
     boolean existsByShopifyOrderId(Long shopifyOrderId);
 
+    /** True when an unconverted lead already uses any of these spellings of a phone number. */
+    boolean existsByPhoneNumberInAndStatusNot(java.util.Collection<String> phoneNumbers, String status);
+
     Page<Lead> findByStatus(String status, Pageable pageable);
 
     Page<Lead> findByAssignedTo(User assignedTo, Pageable pageable);

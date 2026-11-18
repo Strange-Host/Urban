@@ -2,11 +2,13 @@ package com.devsam.urbantrend.Service.Auth;
 
 import com.devsam.urbantrend.Dtos.*;
 import com.devsam.urbantrend.Entity.Category;
+import com.devsam.urbantrend.Entity.Inventory;
 import com.devsam.urbantrend.Entity.Product;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Enum.ProductStatus;
 import com.devsam.urbantrend.Errors.ResourceNotFoundException;
 import com.devsam.urbantrend.Repository.CategoryRepository;
+import com.devsam.urbantrend.Repository.InventoryRepository;
 import com.devsam.urbantrend.Repository.OrderRepository;
 import com.devsam.urbantrend.Repository.ProductRepository;
 import com.devsam.urbantrend.Repository.UserRepository;
@@ -15,7 +17,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,8 +33,10 @@ public class ProductServiceImpl implements ProductService {
     private final CategoryRepository categoryRepository;
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
+    private final InventoryRepository inventoryRepository;
 
     @Override
+    @Transactional
     public Product create(ProductRequest request, User user) {
 
         if (request.getCostPrice() == null) {
@@ -67,7 +73,18 @@ public class ProductServiceImpl implements ProductService {
                 .assignedStaff(assignedStaff)
                 .build();
 
-        return productRepository.save(product);
+        Product saved = productRepository.save(product);
+
+        // A product without an inventory row is treated as "not stock-tracked" and can be sold
+        // in any quantity. Every new product starts tracked at zero, so it cannot be oversold
+        // before its first restock.
+        inventoryRepository.save(Inventory.builder()
+                .product(saved)
+                .quantity(BigDecimal.ZERO)
+                .reorderLevel(BigDecimal.valueOf(5))
+                .build());
+
+        return saved;
     }
 
     @Override

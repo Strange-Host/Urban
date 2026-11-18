@@ -7,6 +7,7 @@ import com.devsam.urbantrend.Entity.Category;
 import com.devsam.urbantrend.Entity.Product;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Repository.CategoryRepository;
+import com.devsam.urbantrend.Repository.InventoryRepository;
 import com.devsam.urbantrend.Repository.OrderRepository;
 import com.devsam.urbantrend.Repository.ProductRepository;
 import com.devsam.urbantrend.Repository.UserRepository;
@@ -35,6 +36,7 @@ class ProductServiceImplTest {
     @Mock private CategoryRepository categoryRepository;
     @Mock private OrderRepository orderRepository;
     @Mock private UserRepository userRepository;
+    @Mock private InventoryRepository inventoryRepository;
 
     private ProductServiceImpl service;
     private Category category;
@@ -42,7 +44,7 @@ class ProductServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new ProductServiceImpl(productRepository, categoryRepository, orderRepository, userRepository);
+        service = new ProductServiceImpl(productRepository, categoryRepository, orderRepository, userRepository, inventoryRepository);
 
         category = new Category();
         category.setId(UUID.randomUUID());
@@ -117,6 +119,18 @@ class ProductServiceImplTest {
 
         assertThat(created.getSku()).isNull();
         verify(productRepository, never()).existsBySku(any());
+    }
+
+    @Test
+    void newProductStartsStockTrackedAtZero() {
+        service.create(request("NEW-2", "500", "300"), user(UserRole.MANAGER));
+
+        org.mockito.ArgumentCaptor<com.devsam.urbantrend.Entity.Inventory> saved =
+                org.mockito.ArgumentCaptor.forClass(com.devsam.urbantrend.Entity.Inventory.class);
+        verify(inventoryRepository).save(saved.capture());
+
+        assertThat(saved.getValue().getQuantity()).isEqualByComparingTo("0");
+        assertThat(saved.getValue().getProduct()).isNotNull();
     }
 
     @Test

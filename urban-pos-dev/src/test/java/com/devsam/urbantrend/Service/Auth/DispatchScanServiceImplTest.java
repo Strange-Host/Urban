@@ -137,4 +137,15 @@ class DispatchScanServiceImplTest {
         verify(orderService).updateStatus(order.getId(), OrderStatus.DISPATCHED_UNPAID, packer);
         assertThat(response.isOrderDispatched()).isTrue();
     }
+
+    @Test
+    void fractionalQuantitiesRoundUpToWholeUnits() {
+        OrderItem half = OrderItem.builder().quantity(new BigDecimal("1.5")).build();
+        OrderItem whole = OrderItem.builder().quantity(new BigDecimal("3")).build();
+        OrderItem tiny = OrderItem.builder().quantity(new BigDecimal("0.2")).build();
+
+        org.assertj.core.api.Assertions.assertThat(DispatchScanServiceImpl.unitsFor(half)).isEqualTo(2);
+        org.assertj.core.api.Assertions.assertThat(DispatchScanServiceImpl.unitsFor(whole)).isEqualTo(3);
+        org.assertj.core.api.Assertions.assertThat(DispatchScanServiceImpl.unitsFor(tiny)).isEqualTo(1);
+    }
 }
