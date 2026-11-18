@@ -20,7 +20,7 @@ import {
 } from "react-icons/fi";
 import { api } from "../api/api";
 import StatCard from "../components/StatCard";
-import { defaultRange } from "../utils/dateRange";
+import { defaultRange, endOfDayIso } from "../utils/dateRange";
 import { getErrorDetail } from "../utils/errors";
 
 // The backend returns at most this many (newest) logs per request.
@@ -47,7 +47,7 @@ export default function StaffLogs() {
       // but our date inputs only give yyyy-MM-dd. Convert here
       // so we don't have to touch the backend controller.
       const fromDateTime = `${from}T00:00:00`;
-      const toDateTime = `${to}T23:59:59`;
+      const toDateTime = endOfDayIso(to);
 
       const res = await api.get(`/api/v1/staff-logs`, {
         params: { from: fromDateTime, to: toDateTime },

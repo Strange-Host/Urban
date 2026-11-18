@@ -27,6 +27,7 @@ import {
 } from "recharts";
 import { getErrorDetail } from "../utils/errors";
 import { summariseSections } from "../utils/dashboardSections";
+import { endOfDayIso, startOfDayIso } from "../utils/dateRange";
 
 function toDateInput(date) {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -128,8 +129,8 @@ export default function Dashboard() {
         return;
       }
 
-      const fromDate = `${from}T00:00:00`;
-      const toDate = `${to}T23:59:59`;
+      const fromDate = startOfDayIso(from);
+      const toDate = endOfDayIso(to);
 
       // Each section loads on its own: a user without, say, the profit-report permission
       // (every cashier and staff member) still gets the parts they are allowed to see.

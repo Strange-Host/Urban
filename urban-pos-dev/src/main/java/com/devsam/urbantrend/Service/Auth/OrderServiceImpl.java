@@ -9,6 +9,7 @@ import com.devsam.urbantrend.Enum.PaymentStatus;
 import com.devsam.urbantrend.Enum.StockUnitStatus;
 import com.devsam.urbantrend.Errors.ResourceNotFoundException;
 import com.devsam.urbantrend.Repository.*;
+import com.devsam.urbantrend.Util.DateRanges;
 import com.devsam.urbantrend.generator.OrderReferenceGenerator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -528,7 +529,7 @@ public class OrderServiceImpl implements OrderService {
         List<TopSellingProductProjection> results =
                 orderRepository.findTopSellingProducts(
                         from.atStartOfDay(),
-                        to.atTime(23, 59, 59),
+                        DateRanges.endOfDay(to),
                         limit
                 );
 

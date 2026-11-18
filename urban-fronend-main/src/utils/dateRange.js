@@ -12,3 +12,13 @@ export function defaultRange(days = 30, now = new Date()) {
   start.setDate(start.getDate() - days);
   return { from: toLocalIsoDate(start), to: toLocalIsoDate(now) };
 }
+
+// Whole-day boundaries for APIs that take a date-time. Ending a day at 23:59:59 dropped every
+// record created in that last second; the server treats the end as inclusive to the microsecond.
+export function startOfDayIso(date) {
+  return `${date}T00:00:00`;
+}
+
+export function endOfDayIso(date) {
+  return `${date}T23:59:59.999999`;
+}

@@ -5,6 +5,7 @@ import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Repository.LeadRepository;
 import com.devsam.urbantrend.Repository.OrderRepository;
 import com.devsam.urbantrend.Repository.UserRepository;
+import com.devsam.urbantrend.Util.DateRanges;
 import com.devsam.urbantrend.Roles.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -51,7 +52,7 @@ public class PayrollServiceImpl implements PayrollService {
             LocalDate weekEnd = weekStart.plusDays(6).isAfter(to) ? to : weekStart.plusDays(6);
 
             LocalDateTime start = weekStart.atStartOfDay();
-            LocalDateTime end = weekEnd.plusDays(1).atStartOfDay().minusNanos(1);
+            LocalDateTime end = DateRanges.endOfDay(weekEnd);
 
             long paidOrdersThisWeek = orderRepository.countPaidOrders(staffId, start, end);
 
@@ -68,7 +69,7 @@ public class PayrollServiceImpl implements PayrollService {
         }
 
         LocalDateTime rangeStart = from.atStartOfDay();
-        LocalDateTime rangeEnd = to.plusDays(1).atStartOfDay().minusNanos(1);
+        LocalDateTime rangeEnd = DateRanges.endOfDay(to);
 
         long daysWorked = orderRepository.countPaidDaysWorked(staffId, rangeStart, rangeEnd);
 
@@ -93,7 +94,7 @@ public class PayrollServiceImpl implements PayrollService {
             LocalDate weekEnd = weekStart.plusDays(6).isAfter(to) ? to : weekStart.plusDays(6);
 
             LocalDateTime start = weekStart.atStartOfDay();
-            LocalDateTime end = weekEnd.plusDays(1).atStartOfDay().minusNanos(1);
+            LocalDateTime end = DateRanges.endOfDay(weekEnd);
 
             Map<UUID, Long> assignedLeads = toCountMap(leadRepository.countAssignedLeadsByStaff(start, end));
             Map<UUID, Long> convertedLeads = toCountMap(leadRepository.countConvertedAndPaidLeadsByStaff(start, end));
@@ -115,7 +116,7 @@ public class PayrollServiceImpl implements PayrollService {
         }
 
         LocalDateTime rangeStart = from.atStartOfDay();
-        LocalDateTime rangeEnd = to.plusDays(1).atStartOfDay().minusNanos(1);
+        LocalDateTime rangeEnd = DateRanges.endOfDay(to);
         Map<UUID, Long> daysWorked = toCountMap(
                 orderRepository.countPaidDaysWorkedByStaff(rangeStart, rangeEnd));
 
