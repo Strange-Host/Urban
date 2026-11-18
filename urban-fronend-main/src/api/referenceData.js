@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { fetchAllPages } from "./fetchAll";
 
 // Dropdown/reference lists change rarely, so share one fetch across pages.
 const CACHE_TTL_MS = 120000;
@@ -26,15 +26,10 @@ function cached(key, loader) {
   return promise;
 }
 
-function rows(response) {
-  const data = response.data;
-  if (Array.isArray(data)) return data;
-  return data?.content || [];
-}
-
-async function fetchList(path, params) {
-  const response = await api.get(path, { params });
-  return rows(response);
+// Dropdowns must list every record, so read all pages rather than only the first.
+function fetchList(path, params) {
+  const { page: _page, size: _size, ...rest } = params;
+  return fetchAllPages(path, rest);
 }
 
 export function loadProducts({ force = false } = {}) {
