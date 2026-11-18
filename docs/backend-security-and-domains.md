@@ -31,7 +31,7 @@ POST /api/v1/auth/register       (ADMIN only)
 ### Token extraction
 
 - `Authorization: Bearer <token>` for normal requests.
-- `?access_token=<token>` only for `GET /api/v1/notifications/subscribe`, because `EventSource` cannot send headers.
+- `?ticket=<ticket>` only for `GET /api/v1/notifications/subscribe`, because `EventSource` cannot send headers. A ticket comes from `POST /api/v1/notifications/stream-ticket` (normal bearer auth), works once and expires after 30 seconds, so no access token ever appears in a URL or log.
 - The filter skips `/api/v1/webhooks*` entirely; those endpoints authenticate by shared secret or HMAC.
 
 ### Authorities
@@ -213,7 +213,7 @@ Payroll:
 
 ## Notifications
 
-- `GET /api/v1/notifications/subscribe` returns an SSE stream; authentication may use `?access_token=`.
+- `GET /api/v1/notifications/subscribe` returns an SSE stream; authentication uses a one-time `?ticket=` from `POST /api/v1/notifications/stream-ticket`.
 - Multiple emitters are supported per user (multiple tabs, bell plus page-level listeners).
 - A scheduled heartbeat sends SSE comments to keep proxies from closing idle streams.
 - Dead emitters are removed on completion, timeout, error or write failure.

@@ -3,13 +3,18 @@ import { api } from "../api/api";
 // One shared live-notification (SSE) connection for the whole app.
 //
 // Why not a plain EventSource per component:
-//  - the token is sent as a query parameter and captured once, so after the access
-//    token expired every reconnect reused the stale token, got a 401 and the browser
-//    gave up for good (notifications silently stopped until a page reload);
+//  - the token was captured once, so after the access token expired every reconnect
+//    reused the stale one, got a 401 and the browser gave up for good (notifications
+//    silently stopped until a page reload);
 //  - the bell and the CRM page each opened their own connection.
 //
-// Here the connection is opened with the *current* token, shared between subscribers,
-// and re-opened after any error with a freshly refreshed token and a growing delay.
+// EventSource cannot send an Authorization header, and the access token must not go in
+// the URL (it ends up in server and proxy logs). So each connection first asks for a
+// short-lived one-time ticket with the normal authenticated request (which also refreshes
+// an expired access token) and puts only that ticket in the URL.
+//
+// The connection is shared between subscribers and re-opened after any error with a
+// fresh ticket and a growing delay.
 
 const MIN_DELAY_MS = 2000;
 const MAX_DELAY_MS = 30000;
@@ -29,15 +34,34 @@ function emit(handlerName, payload) {
   });
 }
 
-function open() {
-  if (source || subscribers.size === 0) return;
+let opening = false;
 
-  const token = localStorage.getItem("accessToken");
-  if (!token) return;
+async function open() {
+  if (source || opening || subscribers.size === 0) return;
+  if (!localStorage.getItem("accessToken")) return;
+
+  opening = true;
+  let ticket;
+  try {
+    const res = await api.post("/api/v1/notifications/stream-ticket");
+    ticket = res?.data?.ticket;
+  } catch {
+    // Offline or signed out: try again with a growing delay.
+  } finally {
+    opening = false;
+  }
+
+  if (!ticket) {
+    scheduleReconnect();
+    return;
+  }
+
+  // Everyone may have left, or another call may have connected, while we waited.
+  if (!ticket || source || subscribers.size === 0) return;
 
   const base = api.defaults.baseURL || "";
   const es = new EventSource(
-    `${base}/api/v1/notifications/subscribe?access_token=${encodeURIComponent(token)}`
+    `${base}/api/v1/notifications/subscribe?ticket=${encodeURIComponent(ticket)}`
   );
   source = es;
 
@@ -55,7 +79,7 @@ function open() {
   });
 
   es.onerror = () => {
-    // Do not let the browser retry by itself: it would reuse the old token.
+    // Do not let the browser retry by itself: the ticket is single-use.
     es.close();
     if (source === es) source = null;
     scheduleReconnect();
@@ -69,15 +93,10 @@ function scheduleReconnect() {
     retryTimer = null;
     if (subscribers.size === 0) return;
 
-    try {
-      // Any authenticated call refreshes an expired access token (api interceptor), or
-      // sends the user to the login page if the refresh token is no longer valid.
-      await api.get("/api/v1/notifications/unread");
-    } catch {
-      // Still offline or signed out; the next attempt will try again.
-    }
-
-    open();
+    // Asking for a ticket is an authenticated call: it refreshes an expired access token
+    // (api interceptor), or sends the user to the login page if the refresh token is no
+    // longer valid.
+    await open();
     if (!source) scheduleReconnect();
   }, retryDelay);
 
@@ -91,7 +110,7 @@ function scheduleReconnect() {
 export function subscribeToNotifications({ onNotification, onOpen } = {}) {
   const subscriber = { onNotification, onOpen };
   subscribers.add(subscriber);
-  open();
+  void open();
 
   return () => {
     subscribers.delete(subscriber);
@@ -118,4 +137,5 @@ export function resetNotificationStream() {
   if (retryTimer) clearTimeout(retryTimer);
   retryTimer = null;
   retryDelay = MIN_DELAY_MS;
+  opening = false;
 }

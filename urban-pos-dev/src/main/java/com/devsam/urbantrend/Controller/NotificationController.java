@@ -4,6 +4,7 @@ import com.devsam.urbantrend.Entity.Notification;
 import com.devsam.urbantrend.Entity.User;
 import com.devsam.urbantrend.Repository.NotificationRepository;
 import com.devsam.urbantrend.Repository.UserRepository;
+import com.devsam.urbantrend.Security.StreamTicketService;
 import com.devsam.urbantrend.Service.Auth.NotificationSseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
@@ -27,6 +29,16 @@ public class NotificationController {
     private final NotificationSseService sseService;
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final StreamTicketService streamTicketService;
+
+    // ── Ticket for the SSE stream (keeps the access token out of the URL) ──────
+    @PostMapping("/stream-ticket")
+    public Map<String, String> streamTicket(@AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            throw new AccessDeniedException("Not authenticated");
+        }
+        return Map.of("ticket", streamTicketService.issue(userDetails.getUsername()));
+    }
 
     // ── SSE Subscribe ──────────────────────────────────────────────────────────
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
